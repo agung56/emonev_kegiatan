@@ -41,6 +41,12 @@ function labelPeriod(mode: string, p: number, tahun: number) {
   return `Tahun ${tahun}`;
 }
 
+function persenColor(value: number) {
+  if (value < 50) return "text-red-600";
+  if (value < 80) return "text-yellow-600";
+  return "text-green-600";
+}
+
 export default function KinerjaRecapClient({
   initialTahun,
   initialSubbagId,
@@ -51,6 +57,7 @@ export default function KinerjaRecapClient({
   const [tahun, setTahun] = useState<number>(initialTahun);
   const [mode, setMode] = useState<"monthly" | "triwulan" | "year">("monthly");
   const [bulan, setBulan] = useState<number>(new Date().getMonth() + 1);
+  const [triwulan, setTriwulan] = useState<number>(1);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -70,6 +77,13 @@ export default function KinerjaRecapClient({
     { value: 12, label: "Desember" },
   ];
 
+  const daftarTriwulan = [
+    { value: 1, label: "Triwulan I (Jan-Mar)" },
+    { value: 2, label: "Triwulan II (Apr-Jun)" },
+    { value: 3, label: "Triwulan III (Jul-Sep)" },
+    { value: 4, label: "Triwulan IV (Okt-Des)" },
+  ];
+
   async function load() {
     setLoading(true);
     setErr("");
@@ -80,6 +94,7 @@ export default function KinerjaRecapClient({
         mode,
         ...(initialSubbagId ? { subbagId: initialSubbagId } : {}),
         ...(mode === "monthly" ? { bulan: String(bulan) } : {}),
+        ...(mode === "triwulan" ? { triwulan: String(triwulan) } : {}),
       });
 
       const res = await fetch(`/api/reports/kinerja?${qs.toString()}`, {
@@ -104,7 +119,7 @@ export default function KinerjaRecapClient({
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tahun, mode, bulan]);
+  }, [tahun, mode, bulan, triwulan]);
 
   const periods = useMemo(() => (data?.periods || []) as any[], [data]);
 
@@ -160,6 +175,23 @@ export default function KinerjaRecapClient({
             </div>
           )}
 
+          {mode === "triwulan" && (
+            <div>
+              <label className="text-sm">Triwulan</label>
+              <select
+                className="block w-52 border rounded px-2 py-1"
+                value={triwulan}
+                onChange={(e) => setTriwulan(Number(e.target.value))}
+              >
+                {daftarTriwulan.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button
             className="h-9 px-3 rounded border bg-white hover:bg-gray-50"
             onClick={load}
@@ -193,104 +225,121 @@ export default function KinerjaRecapClient({
               </div>
             </div>
 
-            {(p.indicators || []).map((ind: any) => (
-              <details key={ind.id} className="border-b last:border-b-0">
-                <summary className="cursor-pointer px-4 py-3 hover:bg-gray-50 flex flex-wrap items-center gap-3">
-                  <div className="font-medium flex-1 min-w-[280px]">{ind.nama}</div>
-                  <div className="text-sm">
-                    Pagu: <b>{rupiah(ind.totalPagu || 0)}</b>
-                  </div>
-                  <div className="text-sm">
-                    Realisasi: <b>{rupiah(ind.totalRealisasi || 0)}</b>
-                  </div>
-                  <div className="text-sm">
-                    Sisa: <b>{rupiah(ind.totalSisa || 0)}</b>
-                  </div>
-                </summary>
+            {(p.indicators || []).map((ind: any) => {
+              const persen =
+                Number(ind.totalPagu || 0) > 0
+                  ? (
+                      (Number(ind.totalRealisasi || 0) /
+                        Number(ind.totalPagu || 0)) *
+                      100
+                    ).toFixed(2)
+                  : "0.00";
 
-                <div className="px-4 pb-4">
-                  {/* <div className="grid md:grid-cols-2 gap-3 mt-2 text-sm">
-                    <div>
-                      <div className="text-xs text-gray-500">
-                        Formula Perhitungan (Master)
-                      </div>
-                      <div className="whitespace-pre-wrap">
-                        {ind.formulaPerhitungan || "-"}
-                      </div>
+              return (
+                <details key={ind.id} className="border-b last:border-b-0">
+                  <summary className="cursor-pointer px-4 py-3 hover:bg-gray-50 flex flex-wrap items-center gap-3">
+                    <div className="font-medium flex-1 min-w-[280px]">{ind.nama}</div>
+                    <div className="text-sm">
+                      Pagu: <b>{rupiah(ind.totalPagu || 0)}</b>
                     </div>
-                    <div>
-                      <div className="text-xs text-gray-500">Sumber Data (Master)</div>
-                      <div className="whitespace-pre-wrap">
-                        {ind.sumberData || "-"}
-                      </div>
+                    <div className="text-sm">
+                      Realisasi: <b>{rupiah(ind.totalRealisasi || 0)}</b>
                     </div>
-                  </div> */}
+                    <div className="text-sm">
+                      Sisa: <b>{rupiah(ind.totalSisa || 0)}</b>
+                    </div>
+                    <div className="text-sm">
+                      Persentase:{" "}
+                      <b className={persenColor(Number(persen))}>{persen}%</b>
+                    </div>
+                  </summary>
 
-                  <div className="mt-4 overflow-auto border rounded">
-                    {(ind.accounts || []).length > 0 && (
-                      <table className="min-w-full text-sm border-b">
+                  <div className="px-4 pb-4">
+                    <div className="mt-4 overflow-auto border rounded">
+                      {(ind.accounts || []).length > 0 && (
+                        <table className="min-w-full text-sm border-b">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="text-left p-2">
+                                Ringkasan Anggaran (Budget Allocation)
+                              </th>
+                              <th className="text-right p-2">Pagu</th>
+                              <th className="text-right p-2">Realisasi</th>
+                              <th className="text-right p-2">Sisa</th>
+                              <th className="text-right p-2">%</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(ind.accounts || []).map((a: any) => {
+                              const persenAkun =
+                                Number(a.pagu || 0) > 0
+                                  ? (
+                                      (Number(a.realisasi || 0) /
+                                        Number(a.pagu || 0)) *
+                                      100
+                                    ).toFixed(2)
+                                  : "0.00";
+
+                              return (
+                                <tr key={a.budgetAccountId} className="border-t">
+                                  <td className="p-2">{a.namaAkun}</td>
+                                  <td className="p-2 text-right">
+                                    {rupiah(a.pagu || 0)}
+                                  </td>
+                                  <td className="p-2 text-right">
+                                    {rupiah(a.realisasi || 0)}
+                                  </td>
+                                  <td className="p-2 text-right">
+                                    {rupiah(a.sisa || 0)}
+                                  </td>
+                                  <td
+                                    className={`p-2 text-right font-medium ${persenColor(
+                                      Number(persenAkun)
+                                    )}`}
+                                  >
+                                    {persenAkun}%
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+
+                      <table className="min-w-full text-sm">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="text-left p-2">
-                              Ringkasan Anggaran (Budget Allocation)
-                            </th>
-                            <th className="text-right p-2">Pagu</th>
+                            <th className="text-left p-2">Kegiatan</th>
+                            <th className="text-left p-2">Lokus</th>
+                            <th className="text-left p-2">Akun Anggaran</th>
                             <th className="text-right p-2">Realisasi</th>
-                            <th className="text-right p-2">Sisa</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {(ind.accounts || []).map((a: any) => (
-                            <tr key={a.budgetAccountId} className="border-t">
-                              <td className="p-2">{a.namaAkun}</td>
+                          {(ind.activities || []).map((a: any) => (
+                            <tr key={a.id} className="border-t">
+                              <td className="p-2">{a.namaKegiatan}</td>
+                              <td className="p-2">{a.lokus}</td>
+                              <td className="p-2">{a.akunAnggaran}</td>
                               <td className="p-2 text-right">
-                                {rupiah(a.pagu || 0)}
-                              </td>
-                              <td className="p-2 text-right">
-                                {rupiah(a.realisasi || 0)}
-                              </td>
-                              <td className="p-2 text-right">
-                                {rupiah(a.sisa || 0)}
+                                {rupiah(a.realisasiAnggaran || 0)}
                               </td>
                             </tr>
                           ))}
+                          {(ind.activities || []).length === 0 && (
+                            <tr>
+                              <td className="p-3 text-gray-600" colSpan={4}>
+                                Tidak ada kegiatan pada periode ini.
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
-                    )}
-
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="text-left p-2">Kegiatan</th>
-                          <th className="text-left p-2">Lokus</th>
-                          <th className="text-left p-2">Akun Anggaran</th>
-                          <th className="text-right p-2">Realisasi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(ind.activities || []).map((a: any) => (
-                          <tr key={a.id} className="border-t">
-                            <td className="p-2">{a.namaKegiatan}</td>
-                            <td className="p-2">{a.lokus}</td>
-                            <td className="p-2">{a.akunAnggaran}</td>
-                            <td className="p-2 text-right">
-                              {rupiah(a.realisasiAnggaran || 0)}
-                            </td>
-                          </tr>
-                        ))}
-                        {(ind.activities || []).length === 0 && (
-                          <tr>
-                            <td className="p-3 text-gray-600" colSpan={6}>
-                              Tidak ada kegiatan pada periode ini.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                    </div>
                   </div>
-                </div>
-              </details>
-            ))}
+                </details>
+              );
+            })}
           </div>
         ))}
       </div>
