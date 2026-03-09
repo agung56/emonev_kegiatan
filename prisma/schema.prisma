@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  USER
+}
+
+enum Kepemilikan {
+  LEMBAGA
+  SEKRETARIAT
+}
+
+model Subbag {
+  id         String             @id @default(cuid())
+  nama       String
+  users      User[]
+  activities Activity[]
+  budgets    BudgetAllocation[]
+  createdAt  DateTime           @default(now())
+
+  @@unique([nama])
+}
+
+model User {
+  id           String             @id @default(cuid())
+  name         String
+  email        String             @unique
+  passwordHash String
+  role         Role               @default(USER)
+  subbagId     String?
+  subbag       Subbag?            @relation(fields: [subbagId], references: [id])
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  evidences    ActivityEvidence[] @relation("EvidenceUploader")
+}
+
+model BudgetAccount {
+  id         String             @id @default(cuid())
+  kodeAkun   String
+  namaAkun   String
+  budgets    BudgetAllocation[]
+  activities Activity[]
+
+  @@unique([kodeAkun, namaAkun])
+}
+
+model BudgetAllocation {
+  id                   String                @id @default(cuid())
+  tahun                Int
+  subbagId             String?
+  subbag               Subbag?               @relation(fields: [subbagId], references: [id])
+  budgetAccountId      String
+  budgetAccount        BudgetAccount         @relation(fields: [budgetAccountId], references: [id])
+  pagu                 Int
+  updatedBy            String?
+  updatedAt            DateTime              @updatedAt
+  createdAt            DateTime              @default(now())
+  activityBudgetUsages ActivityBudgetUsage[]
+
+  @@index([tahun, subbagId, budgetAccountId])
+}
+
+model StrategicGoal {
+  id          String                  @id @default(cuid())
+  tahun       Int
+  kepemilikan Kepemilikan
+  nama        String
+  indicators  PerformanceIndicator[]
+  createdAt   DateTime                @default(now())
+  activities  ActivityStrategicGoal[]
+
+  @@index([tahun, kepemilikan])
+}
+
+model PerformanceIndicator {
+  id                 String              @id @default(cuid())
+  tahun              Int
+  kepemilikan        Kepemilikan
+  nama               String
+  formulaPerhitungan String?             @db.Text
+  sumberData         String?             @db.Text
+  strategicGoalId    String
+  strategicGoal      StrategicGoal       @relation(fields: [strategicGoalId], references: [id])
+  activityLinks      ActivityIndicator[]
+  createdAt          DateTime            @default(now())
+
+  @@index([tahun, kepemilikan])
+}
+
+model Activity {
+  id              String         @id @default(cuid())
+  tahun           Int
+  subbagId        String
+  subbag          Subbag         @relation(fields: [subbagId], references: [id])
+  namaKegiatan    String
+  kepemilikan     String
+  lokus           String
+  targetKinerja   String
+  capaianKinerja  String
+  kendala         String
+  outputKegiatan  String
+  tanggalMulai    DateTime?
+  tanggalSelesai  DateTime?
+  // Legacy single akun (masih disimpan untuk kompatibilitas lama)
+  budgetAccountId String?
+  budgetAccount   BudgetAccount? @relation(fields: [budgetAccountId], references: [id])
+
+  // Total realisasi (auto dari penggunaan akun anggaran)
+  realisasiAnggaran Int
+  createdBy         String
+  updatedAt         DateTime                @updatedAt
+  createdAt         DateTime                @default(now())
+  strategicGoals    ActivityStrategicGoal[]
+  indicators        ActivityIndicator[]
+  evidences         ActivityEvidence[]
+  budgetDetails     ActivityBudgetDetail[]
+  budgetUsages      ActivityBudgetUsage[]
+
+  //realisasiAnggaran
+  budgetPlanId String?
+  budgetPlan   BudgetPlan? @relation(fields: [budgetPlanId], references: [id], onDelete: SetNull)
+
+  budgetPlanUsages       ActivityBudgetPlanUsage[]
+  documentations         ActivityDocumentation[]
+  ActivityBudgetEvidence ActivityBudgetEvidence[]
+
+  @@index([tahun, subbagId])
+}
+
+model ActivityBudgetUsage {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  budgetAllocationId String
+  budgetAllocation   BudgetAllocation @relation(fields: [budgetAllocationId], references: [id])
+
+  amountUsed Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([activityId, budgetAllocationId])
+  @@index([activityId])
+  @@index([budgetAllocationId])
+}
+
+model ActivityBudgetDetail {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  kode        String? @db.VarChar(64)
+  uraian      String  @db.Text
+  volume      Decimal @db.Decimal(18, 2)
+  hargaSatuan Int
+  jumlah      Int
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([activityId])
+}
+
+model ActivityIndicator {
+  activityId  String
+  indicatorId String
+  activity    Activity             @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  indicator   PerformanceIndicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, indicatorId])
+}
+
+model ActivityStrategicGoal {
+  id         String @id @default(cuid())
+  activityId String
+  goalId     String
+
+  activity Activity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  goal     StrategicGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, goalId])
+  @@index([activityId])
+  @@index([goalId])
+}
+
+model ActivityEvidence {
+  id           String   @id @default(cuid())
+  activityId   String
+  activity     Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  filePath     String
+  caption      String?
+  uploadedById String
+  uploadedBy   User     @relation("EvidenceUploader", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+}
+
+model BudgetGlobal {
+  id         String   @id @default(cuid())
+  akun       String
+  tahun      Int
+  pagu       Int
+  keterangan String?  @db.Text
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@unique([akun, tahun])
+  @@index([tahun])
+}
+
+model BudgetPlan {
+  id         String  @id @default(cuid())
+  nama       String // nama kegiatan anggaran
+  tahun      Int
+  keterangan String? @db.Text
+  totalPagu  Int     @default(0) // hasil sum detail
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  details  BudgetPlanDetail[]
+  Activity Activity[]
+}
+
+model BudgetPlanDetail {
+  id           String @id @default(cuid())
+  budgetPlanId String
+  akun         String @db.VarChar(255)
+  pagu         Int    @default(0)
+  sortOrder    Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  budgetPlan              BudgetPlan                @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  ActivityBudgetPlanUsage ActivityBudgetPlanUsage[]
+
+  @@index([budgetPlanId])
+}
+
+model ActivityBudgetPlanUsage {
+  id                 String @id @default(cuid())
+  activityId         String
+  budgetPlanDetailId String
+
+  amountUsed Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activity         Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  budgetPlanDetail BudgetPlanDetail @relation(fields: [budgetPlanDetailId], references: [id], onDelete: Restrict)
+
+  evidences ActivityBudgetEvidence[]
+
+  @@unique([activityId, budgetPlanDetailId])
+  @@index([activityId])
+  @@index([budgetPlanDetailId])
+}
+
+model ActivityBudgetEvidence {
+  id         String @id @default(cuid())
+  activityId String
+  usageId    String
+
+  fileName   String
+  mimeType   String
+  size       Int
+  storageKey String @db.VarChar(255) // path relatif, misal "/uploads/....pdf"
+
+  createdAt DateTime @default(now())
+
+  activity Activity                @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  usage    ActivityBudgetPlanUsage @relation(fields: [usageId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@index([usageId])
+}
+
+model ActivityDocumentation {
+  id         String @id @default(cuid())
+  activityId String
+
+  fileName   String
+  mimeType   String
+  size       Int
+  storageKey String @db.VarChar(255) // path relatif "/uploads/....jpg"
+
+  createdAt DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+}
