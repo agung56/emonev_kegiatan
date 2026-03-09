@@ -39,7 +39,11 @@ export default async function KegiatanPage({
 
       evidences: true,
 
-      budgetPlan: true,
+      budgetPlan: {
+        include: {
+          details:true,
+        },
+      },
 
       budgetPlanUsages: {
         include: {
@@ -116,6 +120,7 @@ export default async function KegiatanPage({
               <th className="text-left p-3">Lokus</th>
               <th className="text-left p-3">Pagu Kegiatan</th>
               <th className="text-right p-3">Realisasi</th>
+              <th className="text-right p-3">%</th>
               <th className="text-left p-3">Akun</th>
               <th className="text-center p-3">Dokumentasi</th>
             </tr>
@@ -147,6 +152,18 @@ export default async function KegiatanPage({
                     0
                   )
                 : Number((r as any).realisasiAnggaran || 0);
+              
+              const totalPagu =
+                r.budgetPlan?.details?.reduce((s: number, d: any) => s + Number(d.pagu || 0), 0) || 0;
+
+              const totalRealisasi =
+                (r as any).budgetPlanUsages?.reduce(
+                  (s: number, u: any) => s + Number(u.amountUsed || 0),
+                  0
+                ) || (r as any).realisasiAnggaran || 0;
+
+              const persen =
+                totalPagu > 0 ? ((totalRealisasi / totalPagu) * 100).toFixed(2) : "0";
 
               return (
                 <tr key={r.id} className="border-t align-top">
@@ -166,6 +183,13 @@ export default async function KegiatanPage({
                   </td>
 
                   <td className="p-3 text-right">Rp {rupiah(realisasi)}</td>
+
+                  <td className="p-3 text-right">
+                    <span className="text-sm font-medium">
+                      
+                      {persen}%
+                    </span>
+                  </td>
 
                   <td className="p-3">
                     {hasPlanUsages ? (
