@@ -124,6 +124,10 @@ Di shared hosting, proses install dependency kadang gagal karena limit thread/pr
    - **Application startup file**: `server.js`
 3. Set env di cPanel (minimal `DATABASE_URL`, `JWT_SECRET`) lalu restart.
 
+Catatan penting (shared hosting ketat):
+- Jangan jalankan `npm install` / `npm ci` di server. Paket `dist/` sudah membawa `node_modules` yang dibutuhkan Next.js runtime.
+- `dist/package.json` dibuat minimal supaya kalau cPanel menawarkan `npm install`, tidak mengunduh dependency besar yang bisa memicu limit proses.
+
 #### Versi command (cPanel Terminal)
 Misal Application root Anda ada di `~/public_html/emonev_kegiatan/dist`:
 ```bash

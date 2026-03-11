@@ -100,6 +100,22 @@ async function main() {
   // Avoid accidentally uploading local secrets
   await fs.rm(path.join(distDir, ".env"), { force: true });
 
+  // cPanel sering menawarkan/menjalankan "npm install" berdasarkan package.json.
+  // Di shared hosting yang ketat (process/thread limit), ini bisa membuat akun freeze.
+  // Untuk standalone, node_modules sudah ikut ter-copy, jadi package.json cukup minimal.
+  const minimalPkg = {
+    name: "emonev-kegiatan-standalone",
+    version: "1.0.0",
+    private: true,
+    engines: { node: "20.x" },
+    scripts: { start: "node server.js" },
+  };
+  await fs.writeFile(
+    path.join(distDir, "package.json"),
+    JSON.stringify(minimalPkg, null, 2) + "\n",
+    "utf8"
+  );
+
   console.log('Standalone package siap di folder "dist/".');
   console.log('Jalankan: node dist/server.js');
 }
