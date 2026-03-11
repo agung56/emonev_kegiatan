@@ -12,14 +12,18 @@ function rupiah(n: number) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { tahun?: string; subbagId?: string; page?: string };
+  searchParams: { tahun?: string; subbagId?: string; page?: string } | Promise<{ tahun?: string; subbagId?: string; page?: string }>;
 }) {
+  const sp = await Promise.resolve(searchParams);
+  const spObj = sp && typeof sp === "object" ? sp : {};
+
   const sess = await getSession();
-  const tahun = Number(searchParams.tahun || new Date().getFullYear());
+  const parsedTahun = Number(spObj.tahun);
+  const tahun = Number.isFinite(parsedTahun) ? parsedTahun : new Date().getFullYear();
   const isAdmin = sess?.role === "SUPER_ADMIN";
-  const subbagId = isAdmin ? (searchParams.subbagId || "") : (sess?.subbagId || "");
+  const subbagId = isAdmin ? (spObj.subbagId || "") : (sess?.subbagId || "");
   const take = 10;
-  const page = Math.max(1, Number(searchParams.page || 1) || 1);
+  const page = Math.max(1, Number(spObj.page || 1) || 1);
 
   const subbags = isAdmin
     ? await prisma.subbag.findMany({
@@ -147,6 +151,9 @@ export default async function DashboardPage({
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1 block ml-1">Tahun</label>
             <input 
               name="tahun" 
+              type="number"
+              min={2000}
+              max={2100}
               defaultValue={tahun} 
               className="block w-full border border-input rounded-lg px-2.5 py-1.5 text-xs bg-muted/50 focus:bg-background focus:ring-2 focus:ring-primary outline-none transition-all" 
             />
@@ -271,7 +278,7 @@ export default async function DashboardPage({
               href={{
                 pathname: "/dashboard",
                 query: Object.fromEntries(
-                  Object.entries({ ...searchParams, page: String(Math.max(1, safePage - 1)) }).filter(
+                  Object.entries({ ...spObj, page: String(Math.max(1, safePage - 1)) }).filter(
                     ([, v]) => v !== undefined && v !== ""
                   )
                 ),
@@ -295,7 +302,7 @@ export default async function DashboardPage({
               href={{
                 pathname: "/dashboard",
                 query: Object.fromEntries(
-                  Object.entries({ ...searchParams, page: String(Math.min(totalPages, safePage + 1)) }).filter(
+                  Object.entries({ ...spObj, page: String(Math.min(totalPages, safePage + 1)) }).filter(
                     ([, v]) => v !== undefined && v !== ""
                   )
                 ),

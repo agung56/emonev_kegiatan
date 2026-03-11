@@ -22,6 +22,18 @@ type ChartData = {
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
 
+function shortAxisLabel(value: unknown) {
+  const text = String(value ?? "");
+  if (!text) return "";
+
+  // Keep axis readable on small screens; full name is still available in tooltip.
+  if (text === "Partisipasi Hubungan Masyarakat dan Sumber Daya Manusia") return "SDM & Parmas";
+
+  const max = 22;
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+
 export default function DashboardCharts({
   data,
   totalPagu,
@@ -58,6 +70,11 @@ export default function DashboardCharts({
                 tickLine={false}
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                 dy={10}
+                interval={0}
+                tickFormatter={shortAxisLabel}
+                angle={-18}
+                textAnchor="end"
+                height={60}
               />
               <YAxis
                 axisLine={false}
@@ -123,9 +140,9 @@ export default function DashboardCharts({
                 itemStyle={{ color: "hsl(var(--foreground))" }}
                 labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                 formatter={(value) => {
-              if (typeof value !== "number") return ["0", ""];
-              return [`Rp ${new Intl.NumberFormat("id-ID").format(value)}`, ""];
-            }}
+                  if (typeof value !== "number") return ["0", ""];
+                  return [`Rp ${new Intl.NumberFormat("id-ID").format(value)}`, ""];
+                }}
               />
             </PieChart>
           </ResponsiveContainer>

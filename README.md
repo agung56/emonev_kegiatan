@@ -86,4 +86,23 @@ Project ini sudah *langsung jalan* (frontend & backend dalam 1 project Next.js) 
 - Jalankan di belakang HTTPS (reverse proxy Nginx/Caddy/Cloudflare).
 - Untuk upload file, disarankan pakai storage (S3/MinIO) + backup supaya aman & tidak hilang saat deploy.
 
+## 7) Deploy di cPanel (tanpa Node.js tidak bisa)
+Next.js + API routes **butuh Node.js runtime**. Jadi kalau di cPanel Anda **belum ada menu** `Setup Node.js App` / `Node.js Selector`, aplikasi ini tidak bisa jalan di hosting tersebut (opsinya: upgrade paket/aktifkan Node.js, atau pindah ke VPS/hosting yang support Node.js).
+
+Jika cPanel Anda support Node.js:
+1. Upload project ke server (Git/FTP/File Manager).
+2. Siapkan database MySQL & set env (`DATABASE_URL`, `JWT_SECRET`) di `.env` atau via Environment Variables di cPanel.
+3. Buka `Setup Node.js App`:
+   - Pilih Node.js versi **20.x** (sesuai `package.json`).
+   - Set **Application root** ke folder project.
+   - Set **Application startup file** ke `server.js`.
+4. Install & build (via Terminal/SSH atau fitur Run NPM di cPanel):
+   ```bash
+   npm ci
+   npx prisma generate
+   npm run migrate:deploy
+   npm run build
+   ```
+5. Restart aplikasi dari cPanel.
+
 Selamat mencoba.

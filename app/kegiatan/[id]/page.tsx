@@ -17,13 +17,16 @@ function rupiah(n: number) {
 export default async function KegiatanDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: { id?: string } | Promise<{ id?: string }>;
 }) {
   const sess = await getSession();
   if (!sess) notFound();
 
+  const { id } = await Promise.resolve(params);
+  if (!id) notFound();
+
   const row = await prisma.activity.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       subbag: true,
       indicators: { include: { indicator: true } },

@@ -143,16 +143,34 @@ export async function GET(
   }
 
   // raw/download: return bytes
-  const buf = await fs.readFile(fullPath).catch(() => null);
-  if (!buf) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
   const downloadName = displayName.replace(/\"/g, "");
   const disposition = isDownload ? `attachment; filename="${downloadName}"` : undefined;
+
+  const stat = await fs.stat(fullPath).catch(() => null);
+  if (!stat || !stat.isFile()) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const etag = `W/"${stat.size}-${Math.trunc(stat.mtimeMs)}"`;
+  const ifNoneMatch = req.headers.get("if-none-match");
+  if (ifNoneMatch === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: {
+        "Content-Type": contentType,
+        ...(disposition ? { "Content-Disposition": disposition } : {}),
+        ETag: etag,
+        "Cache-Control": "private, max-age=0, must-revalidate",
+      },
+    });
+  }
+
+  const buf = await fs.readFile(fullPath).catch(() => null);
+  if (!buf) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return new Response(buf, {
     headers: {
       "Content-Type": contentType,
       ...(disposition ? { "Content-Disposition": disposition } : {}),
+      ETag: etag,
       "Cache-Control": "private, max-age=0, must-revalidate",
     },
   });
