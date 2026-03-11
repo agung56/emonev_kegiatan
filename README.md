@@ -132,6 +132,9 @@ cd ~/public_html/emonev_kegiatan/dist
 # cek runtime
 node -v
 
+# cek health (bisa juga buka lewat browser: /api/health dan /api/health?db=1)
+node -e "const p=process.env.PORT||3000;fetch('http://127.0.0.1:'+p+'/api/health?db=1').then(r=>r.text()).then(console.log).catch(console.error)"
+
 # (opsional) lihat apakah env sudah kebaca
 echo "$DATABASE_URL"
 

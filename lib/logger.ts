@@ -1,5 +1,3 @@
-import { prisma } from "./prisma";
-
 export async function logActivity({
   userId,
   action,
@@ -14,6 +12,7 @@ export async function logActivity({
   ipAddress?: string | null;
 }) {
   try {
+    const { prisma } = await import("./prisma");
     await (prisma as any).activityLog.create({
       data: {
         userId,

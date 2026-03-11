@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prisma:generate": "prisma generate",
     "build:standalone": "npm run build && npm run package:standalone",
+    "build:standalone:full": "npm run prisma:generate && npm run build && npm run package:standalone",
     "package:standalone": "node tools/package-standalone.mjs",
     "start": "node server.js",
     "lint": "next lint",

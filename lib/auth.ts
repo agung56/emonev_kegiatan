@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import { prisma } from "./prisma";
 import type { Role, User } from "@prisma/client";
 import type { NextResponse } from "next/server";
 
@@ -85,6 +84,7 @@ export async function getActiveUserOrThrow() {
     err.status = 401;
     throw err;
   }
+  const { prisma } = await import("./prisma");
   const dbUser = await prisma.user.findUnique({ where: { id: sess.id } });
   if (!dbUser || !dbUser.isActive) {
     const err: any = new Error("Unauthorized");
