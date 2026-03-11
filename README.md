@@ -51,6 +51,14 @@ Project ini sudah *langsung jalan* (frontend & backend dalam 1 project Next.js) 
 8. Buka:
    - http://localhost:3000
 
+### Troubleshooting Windows (npm EPERM/EACCES)
+- Pastikan Node **20.x** (`node -v`), jangan Node 24.x.
+- Jika PowerShell memblok `npm` (ExecutionPolicy), gunakan `npm.cmd`:
+  - `npm.cmd ci --no-audit --no-fund --cache .\\.npm-cache`
+- Jika masih `EPERM spawn` / `EACCES`, coba:
+  - Jalankan terminal sebagai Administrator, atau
+  - Tambahkan folder project ke exception antivirus/Defender, dan pastikan folder cache (`.npm-cache`) writable.
+
 ## 4) Akun default (hasil seed)
 - Super Admin: `admin@local` / `admin123`
 - User subbag:
