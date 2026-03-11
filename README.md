@@ -111,6 +111,7 @@ Di shared hosting, proses install dependency kadang gagal karena limit thread/pr
 1. Di lokal (PC/laptop):
    ```bash
    npm ci
+   # penting: prisma generate harus dijalankan di lokal supaya Prisma Client ikut ter-bundle
    npx prisma generate
    # opsional: kalau DATABASE_URL bisa akses database server (mis. via SSH tunnel)
    npm run migrate:deploy

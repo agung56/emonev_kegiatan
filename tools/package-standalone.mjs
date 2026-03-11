@@ -35,6 +35,14 @@ async function main() {
     await fs.cp(nextStaticDir, distStaticDir, { recursive: true });
   }
 
+  // Seed script membutuhkan bcryptjs, tapi kadang tidak ikut ke tracing standalone.
+  const bcryptSrc = path.join(projectRoot, "node_modules", "bcryptjs");
+  if (await pathExists(bcryptSrc)) {
+    const bcryptOut = path.join(distDir, "node_modules", "bcryptjs");
+    await fs.mkdir(path.dirname(bcryptOut), { recursive: true });
+    await fs.cp(bcryptSrc, bcryptOut, { recursive: true, dereference: true });
+  }
+
   // Include seed script (optional convenience on server)
   const prismaOutDir = path.join(distDir, "prisma");
   const seedSrc = path.join(projectRoot, "prisma", "seed.js");

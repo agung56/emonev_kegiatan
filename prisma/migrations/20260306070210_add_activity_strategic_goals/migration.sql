@@ -5,7 +5,7 @@ DROP INDEX `PerformanceIndicator_tahun_kepemilikan_strategicGoalId_nama_key` ON 
 DROP INDEX `StrategicGoal_tahun_kepemilikan_nama_key` ON `strategicgoal`;
 
 -- AlterTable
-ALTER TABLE `activity` ALTER COLUMN `realisasiAnggaran` DROP DEFAULT;
+ALTER TABLE `Activity` ALTER COLUMN `realisasiAnggaran` DROP DEFAULT;
 
 -- CreateTable
 CREATE TABLE `ActivityStrategicGoal` (

@@ -6,7 +6,7 @@
 
 */
 -- AlterTable
-ALTER TABLE `activity` MODIFY `realisasiAnggaran` INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE `Activity` MODIFY `realisasiAnggaran` INTEGER NOT NULL DEFAULT 0;
 
 -- CreateIndex
 CREATE UNIQUE INDEX `PerformanceIndicator_tahun_kepemilikan_strategicGoalId_nama_key` ON `PerformanceIndicator`(`tahun`, `kepemilikan`, `strategicGoalId`, `nama`);

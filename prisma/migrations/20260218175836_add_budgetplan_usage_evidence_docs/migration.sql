@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE `activity` ADD COLUMN `budgetPlanId` VARCHAR(191) NULL;
+ALTER TABLE `Activity` ADD COLUMN `budgetPlanId` VARCHAR(191) NULL;
 
 -- CreateTable
 CREATE TABLE `ActivityBudgetPlanUsage` (
