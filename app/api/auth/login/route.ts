@@ -73,6 +73,13 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Pro
   });
 }
 
+function getDbTimeoutMs() {
+  const raw = String(process.env.DB_TIMEOUT_MS || "").trim();
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n) && n > 0) return Math.trunc(n);
+  return process.env.NODE_ENV === "production" ? 20000 : 8000;
+}
+
 async function readBody(req: Request) {
   const ct = req.headers.get("content-type") || "";
   // JSON
@@ -90,6 +97,7 @@ async function readBody(req: Request) {
 }
 
 export async function POST(req: Request) {
+  let prismaClient: (typeof import("@/lib/prisma"))["prisma"] | null = null;
   try {
     if (!process.env.JWT_SECRET) {
       return NextResponse.json(
@@ -106,6 +114,7 @@ export async function POST(req: Request) {
     // Import prisma/logging secara dinamis supaya kalau Prisma engine/env bermasalah,
     // kita tetap bisa balas JSON (bukan HTML 500 bawaan Next).
     const { prisma } = await import("@/lib/prisma");
+    prismaClient = prisma;
 
     const body = await readBody(req);
     const email = String(body.email || "").trim().toLowerCase();
@@ -114,6 +123,8 @@ export async function POST(req: Request) {
     if (!email || !password) {
       return NextResponse.json({ ok: false, message: "Email/password wajib" }, { status: 400 });
     }
+
+    const dbTimeoutMs = getDbTimeoutMs();
 
     const user = await withTimeout<LoginUser | null>(
       prisma.user.findUnique({
@@ -129,7 +140,7 @@ export async function POST(req: Request) {
           subbag: { select: { nama: true } },
         },
       }) as unknown as PromiseLike<LoginUser | null>,
-      8000,
+      dbTimeoutMs,
       "DB"
     );
 
@@ -163,9 +174,25 @@ export async function POST(req: Request) {
     const message = String(err?.message || "Internal error");
     console.error("Login error:", err);
 
+    // Kalau timeout/engine crash, putuskan koneksi agar query yang masih jalan tidak menumpuk
+    // (shared hosting mudah overload).
+    if (
+      prismaClient &&
+      (message.toLowerCase().includes("timeout") ||
+        message.includes("Server is not running") ||
+        message.includes("ERR_SERVER_NOT_RUNNING"))
+    ) {
+      try {
+        await prismaClient.$disconnect();
+      } catch {
+        // ignore
+      }
+    }
+
     let friendly = "Server error saat login.";
     if (message.toLowerCase().includes("timeout")) {
-      friendly = "Server lambat/DB timeout. Coba lagi.";
+      friendly =
+        "Server lambat/DB timeout. Pastikan DATABASE_URL benar (host biasanya 127.0.0.1/localhost) dan user DB sudah di-assign ke database di cPanel. Coba lagi.";
     } else if (
       message.includes("The provided database string is invalid") ||
       message.includes("Error parsing connection string") ||
