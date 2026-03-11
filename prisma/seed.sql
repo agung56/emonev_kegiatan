@@ -9,9 +9,9 @@
 
 SET @ADMIN_EMAIL = 'admin@local';
 SET @ADMIN_NAME = 'Super Admin';
-SET @ADMIN_PASS_HASH = 'GANTI_DENGAN_HASH_ADMIN';
+SET @ADMIN_PASS_HASH = '$2a$10$tGRReCEdfvUHg6OiVrk0fu4YawoM/9U0MBdLdlIxrvwLfe0NG64BO';
 
-SET @USER_PASS_HASH = 'GANTI_DENGAN_HASH_USER';
+SET @USER_PASS_HASH = '$2a$10$n1W.EznRivHDHTLfOMwX7OOsAFCXBPjy/0jCfsaj9.lmb3dWe4TMW';
 
 -- Subbag (pakai INSERT IGNORE lalu SELECT id agar tidak double)
 INSERT IGNORE INTO `Subbag` (`id`, `nama`, `createdAt`)
@@ -128,4 +128,3 @@ WHERE NOT EXISTS (
   WHERE `tahun` = @TAHUN AND `subbagId` = @SB_SDMPARMAS AND `budgetAccountId` = @AKUN_JASA
   LIMIT 1
 );
-
