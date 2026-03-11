@@ -123,6 +123,29 @@ Di shared hosting, proses install dependency kadang gagal karena limit thread/pr
    - **Application startup file**: `server.js`
 3. Set env di cPanel (minimal `DATABASE_URL`, `JWT_SECRET`) lalu restart.
 
+#### Versi command (cPanel Terminal)
+Misal Application root Anda ada di `~/public_html/emonev_kegiatan/dist`:
+```bash
+cd ~/public_html/emonev_kegiatan/dist
+
+# cek runtime
+node -v
+
+# (opsional) lihat apakah env sudah kebaca
+echo "$DATABASE_URL"
+
+# jalankan migrasi (kalau punya akses mysql client)
+# jalankan per file, urut sesuai timestamp folder
+for f in prisma/migrations/*/migration.sql; do
+  echo "Running $f"
+  mysql -h localhost -u DB_USER -p DB_NAME < "$f"
+done
+
+# seed (buat akun default)
+node prisma/seed.js
+```
+Lalu restart aplikasi via tombol **Restart** di `Setup Node.js App`.
+
 Catatan:
 - Paket `dist/` **tidak** menyertakan `.env` (biar tidak ikut keupload), jadi pastikan env di-set via cPanel.
 - Jika database **hanya bisa diakses dari server**, Anda bisa:
