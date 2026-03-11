@@ -32,23 +32,30 @@ export default function PageShellClient({
   showNav?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => {
-    if (!showNav) return false;
+  const [collapsed, setCollapsed] = useState(false);
+  const [collapsePrefLoaded, setCollapsePrefLoaded] = useState(false);
+
+  // Load persisted sidebar state after mount to avoid hydration mismatch.
+  useEffect(() => {
+    if (!showNav) return;
     try {
-      return localStorage.getItem("sidebar_collapsed") === "1";
+      setCollapsed(localStorage.getItem("sidebar_collapsed") === "1");
     } catch {
-      return false;
+      // ignore
+    } finally {
+      setCollapsePrefLoaded(true);
     }
-  });
+  }, [showNav]);
 
   useEffect(() => {
     if (!showNav) return;
+    if (!collapsePrefLoaded) return;
     try {
       localStorage.setItem("sidebar_collapsed", collapsed ? "1" : "0");
     } catch {
       // ignore
     }
-  }, [collapsed, showNav]);
+  }, [collapsed, showNav, collapsePrefLoaded]);
 
   useEffect(() => {
     if (!showNav) return;

@@ -22,16 +22,60 @@ type ChartData = {
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
 
-function shortAxisLabel(value: unknown) {
-  const text = String(value ?? "");
-  if (!text) return "";
+function wrapLabel(value: unknown, maxCharsPerLine: number) {
+  const text = String(value ?? "").trim();
+  if (!text) return [];
 
-  // Keep axis readable on small screens; full name is still available in tooltip.
-  if (text === "Partisipasi Hubungan Masyarakat dan Sumber Daya Manusia") return "SDM & Parmas";
+  const words = text.split(/\s+/g);
+  const lines: string[] = [];
+  let current = "";
 
-  const max = 22;
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 1)}…`;
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= maxCharsPerLine) {
+      current = next;
+      continue;
+    }
+
+    if (current) lines.push(current);
+    current = word;
+  }
+
+  if (current) lines.push(current);
+  return lines;
+}
+
+function XAxisTick({
+  x,
+  y,
+  payload,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: unknown };
+}) {
+  const value = payload?.value ?? "";
+  const lines = wrapLabel(value, 16);
+
+  // Up to 4 lines to avoid clipping; still shows full text (no ellipsis).
+  const safeLines = lines.length > 4 ? lines.slice(0, 3).concat([lines.slice(3).join(" ")]) : lines;
+
+  return (
+    <g transform={`translate(${x ?? 0},${y ?? 0})`}>
+      <text
+        fill="hsl(var(--muted-foreground))"
+        fontSize={10}
+        textAnchor="middle"
+        dominantBaseline="hanging"
+      >
+        {safeLines.map((line, i) => (
+          <tspan key={i} x={0} dy={i === 0 ? 0 : 13}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
 }
 
 export default function DashboardCharts({
@@ -45,6 +89,12 @@ export default function DashboardCharts({
 }) {
   const { theme } = useTheme();
   const sisaColor = theme === "dark" ? "#1e293b" : "#e2e8f0";
+  const n = Math.max(1, data.length);
+
+  // Make bars fill the available width better (especially when only a few categories exist).
+  // Tuned to keep bars from looking oversized in the card.
+  const barCategoryGap = n <= 3 ? "50%" : "26%";
+  const maxBarSize = n === 1 ? 84 : n === 2 ? 76 : n === 3 ? 68 : 60;
 
   const pieData = [
     { name: "Realisasi", value: totalRealisasi, color: "#10b981" },
@@ -60,21 +110,24 @@ export default function DashboardCharts({
             Realisasi Anggaran per Subbag
           </h3>
         </div>
-        <div className="h-[300px] w-full">
+        <div className="h-[300px] md:h-[340px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <BarChart
+              data={data}
+              barCategoryGap={barCategoryGap}
+              barGap={14}
+              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
               <XAxis
                 dataKey="name"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                tick={<XAxisTick />}
                 dy={10}
                 interval={0}
-                tickFormatter={shortAxisLabel}
-                angle={-18}
-                textAnchor="end"
-                height={60}
+                height={120}
+                padding={{ left: 0, right: 0 }}
               />
               <YAxis
                 axisLine={false}
@@ -100,7 +153,7 @@ export default function DashboardCharts({
                   ];
                 }}
               />
-              <Bar dataKey="realisasi" radius={[4, 4, 0, 0]} barSize={40}>
+              <Bar dataKey="realisasi" radius={[6, 6, 0, 0]} maxBarSize={maxBarSize}>
                 {data.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
@@ -115,13 +168,13 @@ export default function DashboardCharts({
         <h3 className="font-bold text-foreground/80 text-sm uppercase tracking-wider mb-6">
           Penyerapan Total
         </h3>
-        <div className="h-[240px] w-full relative">
+        <div className="h-[240px] md:h-[260px] w-full relative">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={pieData}
-                innerRadius={60}
-                outerRadius={80}
+                innerRadius="60%"
+                outerRadius="70%"
                 paddingAngle={5}
                 dataKey="value"
               >

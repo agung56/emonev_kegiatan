@@ -1,6 +1,6 @@
 import PageShell from "@/app/components/PageShell";
 import { getSession } from "@/lib/auth";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import EditKegiatanClient from "./EditKegiatanClient";
 
 export default async function EditKegiatanPage({
@@ -9,7 +9,7 @@ export default async function EditKegiatanPage({
   params: { id?: string } | Promise<{ id?: string }>;
 }) {
   const sess = await getSession();
-  if (!sess) notFound();
+  if (!sess) redirect("/login");
 
   const { id } = await Promise.resolve(params);
   if (!id) notFound();

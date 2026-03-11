@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatSubbagName } from "@/lib/formatSubbag";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import DeleteDocumentationButton from "./DeleteActivityButton";
 
 function rupiah(n: number) {
@@ -20,7 +20,7 @@ export default async function KegiatanDetailPage({
   params: { id?: string } | Promise<{ id?: string }>;
 }) {
   const sess = await getSession();
-  if (!sess) notFound();
+  if (!sess) redirect("/login");
 
   const { id } = await Promise.resolve(params);
   if (!id) notFound();

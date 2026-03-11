@@ -26,7 +26,7 @@ Project ini sudah *langsung jalan* (frontend & backend dalam 1 project Next.js) 
 1. Extract ZIP ini
 2. Masuk folder project:
    ```bash
-   cd ohgitu-rekap-kegiatan
+   cd emonev_kegiatan
    ```
 3. Install dependency:
    ```bash
