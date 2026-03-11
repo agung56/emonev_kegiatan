@@ -39,10 +39,7 @@ export async function POST(req: Request) {
 
     // Import prisma/logging secara dinamis supaya kalau Prisma engine/env bermasalah,
     // kita tetap bisa balas JSON (bukan HTML 500 bawaan Next).
-    const [{ prisma }, { logActivity }] = await Promise.all([
-      import("@/lib/prisma"),
-      import("@/lib/logger"),
-    ]);
+    const { prisma } = await import("@/lib/prisma");
 
     const body = await readBody(req);
     const email = String(body.email || "").trim().toLowerCase();
@@ -94,15 +91,6 @@ export async function POST(req: Request) {
       subbagId: user.subbagId,
       subbagName: user.subbag?.nama ?? null,
     });
-
-    // Jangan blocking response untuk logging (shared hosting sering ketat resource).
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
-    void logActivity({
-      userId: user.id,
-      action: "LOGIN",
-      description: `User ${user.name} berhasil login.`,
-      ipAddress: ip,
-    }).catch(() => {});
 
     return res;
   } catch (err: any) {

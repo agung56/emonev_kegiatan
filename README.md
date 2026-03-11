@@ -77,7 +77,6 @@ Project ini sudah *langsung jalan* (frontend & backend dalam 1 project Next.js) 
   - Super Admin bisa mengubah email & password akunnya sendiri (Pengaturan Akun)
 - Halaman **/budgets**: Super Admin bisa tambah/edit pagu kegiatan & detail akun (Pagu Global) lewat UI
 - Halaman **/sasaran**: Super Admin bisa CRUD Sasaran Strategis & Indikator lewat UI
-- Halaman **/logs**: Super Admin bisa hapus log per hari / per bulan
 
 ## 6) Catatan produksi
 - **Wajib set `JWT_SECRET`**. Di production minimal 32 karakter (random) dan jangan pakai value default.
@@ -128,7 +127,7 @@ Catatan penting (shared hosting ketat):
 - Jangan jalankan `npm install` / `npm ci` di server. Paket `dist/` sudah membawa `node_modules` yang dibutuhkan Next.js runtime.
 - `dist/package.json` dibuat minimal supaya kalau cPanel menawarkan `npm install`, tidak mengunduh dependency besar yang bisa memicu limit proses.
 - (Opsional) Kalau Anda sudah tahu target Prisma engine di server, Anda bisa kecilkan `dist/` saat packaging dengan env `DIST_PRISMA_TARGET` (lihat `dist/DEPLOY_CPANEL.md`).
-- (Opsional) Untuk mengurangi beban DB, Anda bisa mematikan activity logging dengan env `ENABLE_ACTIVITY_LOGS` (default mati). Set `ENABLE_ACTIVITY_LOGS=1` kalau ingin aktif lagi.
+- File upload (dokumentasi/evidence) di server disimpan di `public/uploads`. Paket `dist/` **tidak** membawa `public/uploads` dari lokal agar ukuran upload kecil; pastikan folder `public/uploads` di server tetap ada dan writable.
 
 #### Versi command (cPanel Terminal)
 Misal Application root Anda ada di `~/public_html/emonev_kegiatan/dist`:

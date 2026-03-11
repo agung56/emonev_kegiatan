@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
-import { logActivity } from "@/lib/logger";
 
 export async function GET(
   req: NextRequest,
@@ -268,18 +267,6 @@ export async function PUT(
       documentations: true,
     },
   });
-
-
-  // Log Activity
-  const ip = req.headers.get("x-forwarded-for") || "unknown";
-  await logActivity({
-    userId: user.id,
-    action: "UPDATE_ACTIVITY",
-    description: `User ${user.name} mengubah kegiatan: ${updated.namaKegiatan}`,
-    metadata: { activityId: updated.id },
-    ipAddress: ip,
-  });
-
   return NextResponse.json(updated);
 }
 
@@ -303,16 +290,6 @@ export async function DELETE(
   }
 
   await prisma.activity.delete({ where: { id } });
-
-  // Log Activity
-  const ip = req.headers.get("x-forwarded-for") || "unknown";
-  await logActivity({
-    userId: user.id,
-    action: "DELETE_ACTIVITY",
-    description: `User ${user.name} menghapus kegiatan: ${existing.namaKegiatan}`,
-    metadata: { activityId: id },
-    ipAddress: ip,
-  });
 
   return NextResponse.json({ ok: true });
 }

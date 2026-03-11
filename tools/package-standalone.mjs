@@ -43,6 +43,27 @@ async function readPrismaBinaryTargets(schemaPath) {
   }
 }
 
+async function prunePrismaRuntime(runtimeDir) {
+  // Hapus runtime WASM (edge/browser/other db) yang tidak dipakai untuk Node + binary engine.
+  // Ini signifikan mengurangi ukuran dist.
+  const removeNames = [
+    "query_engine_bg.mysql.wasm",
+    "query_engine_bg.postgresql.wasm",
+    "query_engine_bg.sqlite.wasm",
+    "query_engine_bg.mysql.js",
+    "query_engine_bg.postgresql.js",
+    "query_engine_bg.sqlite.js",
+    "edge.js",
+    "edge-esm.js",
+    "wasm.js",
+    "react-native.js",
+    "index-browser.js",
+  ];
+
+  if (!(await pathExists(runtimeDir))) return;
+  await Promise.all(removeNames.map((n) => rmIfExists(path.join(runtimeDir, n))));
+}
+
 async function main() {
   if (!(await pathExists(standaloneDir))) {
     throw new Error(
@@ -62,6 +83,12 @@ async function main() {
     await fs.mkdir(distStaticDir, { recursive: true });
     await fs.cp(nextStaticDir, distStaticDir, { recursive: true });
   }
+
+  // Jangan ikutkan file upload lokal (biasanya sangat besar) ke paket deploy.
+  // Di server, folder ini harus persist antar deploy.
+  await rmIfExists(path.join(distDir, "public", "uploads"));
+  await fs.mkdir(path.join(distDir, "public", "uploads"), { recursive: true });
+  await fs.writeFile(path.join(distDir, "public", "uploads", ".keep"), "");
 
   // Pastikan bcryptjs ada (dipakai untuk login). Kadang tidak ikut tracing standalone.
   const bcryptOut = path.join(distDir, "node_modules", "bcryptjs");
@@ -104,6 +131,17 @@ async function main() {
           .filter((n) => !keepTargets.some((t) => n.includes(t)))
           .map((n) => rmIfExists(path.join(prismaClientDir, n)))
       );
+    }
+  }
+
+  // Prune Prisma runtime WASM assets (root + hashed package di .next/node_modules)
+  await prunePrismaRuntime(path.join(distDir, "node_modules", "@prisma", "client", "runtime"));
+  const nextPrismaScopeDir = path.join(distDir, ".next", "node_modules", "@prisma");
+  if (await pathExists(nextPrismaScopeDir)) {
+    const entries = await fs.readdir(nextPrismaScopeDir, { withFileTypes: true });
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      await prunePrismaRuntime(path.join(nextPrismaScopeDir, e.name, "runtime"));
     }
   }
 
@@ -175,6 +213,10 @@ Lalu klik **Restart**. Selesai.
 Buka URL:
 - \`/api/health\`
 - \`/api/health?db=1\` (cek koneksi DB + timeout)
+
+## Catatan upload file (uploads)
+Folder \`public/uploads\` di server harus persist. Paket \`dist/\` sengaja **tidak** membawa file upload lokal agar size kecil.
+Pastikan di server ada folder \`public/uploads\` dan bisa ditulis oleh proses Node.
 
 ## Opsional: kecilkan ukuran Prisma engine
 Secara default, script akan ikut daftar \`binaryTargets\` di \`prisma/schema.prisma\` untuk memangkas engine yang tidak perlu.

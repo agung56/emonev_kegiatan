@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
-import { logActivity } from "@/lib/logger";
 
 export async function GET(req: Request) {
   const user = await getActiveUserOrThrow();
@@ -306,17 +305,5 @@ export async function POST(req: Request) {
       },
     },
   });
-
-
-  // Log Activity
-  const ip = req.headers.get("x-forwarded-for") || "unknown";
-  await logActivity({
-    userId: user.id,
-    action: "CREATE_ACTIVITY",
-    description: `User ${user.name} membuat kegiatan baru: ${created.namaKegiatan}`,
-    metadata: { activityId: created.id },
-    ipAddress: ip,
-  });
-
   return NextResponse.json({ ok: true, item: created });
 }
