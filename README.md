@@ -127,6 +127,7 @@ Di shared hosting, proses install dependency kadang gagal karena limit thread/pr
 Catatan penting (shared hosting ketat):
 - Jangan jalankan `npm install` / `npm ci` di server. Paket `dist/` sudah membawa `node_modules` yang dibutuhkan Next.js runtime.
 - `dist/package.json` dibuat minimal supaya kalau cPanel menawarkan `npm install`, tidak mengunduh dependency besar yang bisa memicu limit proses.
+- (Opsional) Kalau Anda sudah tahu target Prisma engine di server, Anda bisa kecilkan `dist/` saat packaging dengan env `DIST_PRISMA_TARGET` (lihat `dist/DEPLOY_CPANEL.md`).
 
 #### Versi command (cPanel Terminal)
 Misal Application root Anda ada di `~/public_html/emonev_kegiatan/dist`:
@@ -149,8 +150,7 @@ for f in prisma/migrations/*/migration.sql; do
   mysql -h localhost -u DB_USER -p DB_NAME < "$f"
 done
 
-# seed (buat akun default)
-node prisma/seed.js
+# seed (buat akun default) - jalankan via phpMyAdmin: `prisma/seed.sql`
 ```
 Lalu restart aplikasi via tombol **Restart** di `Setup Node.js App`.
 
@@ -160,7 +160,6 @@ Catatan:
 - Jika database **hanya bisa diakses dari server**, Anda bisa:
   - Jalankan migrasi manual via phpMyAdmin/MySQL client dengan file `prisma/migrations/*/migration.sql` (folder `prisma/migrations` ikut dipaketkan ke `dist/`), lalu
   - Seed:
-    - Jika `node prisma/seed.js` berat dan membuat hosting freeze, jalankan seed via SQL (`prisma/seed.sql`) di phpMyAdmin.
-    - Atau jalankan seed via Node: `node prisma/seed.js` (file ini ikut dipaketkan ke `dist/`).
+    - Jalankan seed via SQL (`prisma/seed.sql`) di phpMyAdmin (lebih ringan, tidak bikin Node/Prisma jalan).
 
 Selamat mencoba.
