@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import path from "path";
 import fs from "fs/promises";
+import { checkActivityFileLimit } from "@/lib/uploadLimits";
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const params = await ctx.params;
@@ -19,6 +20,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const caption = String(form.get("caption") || "");
 
   if (!file) return NextResponse.json({ error: "file wajib" }, { status: 400 });
+
+  const limit = await checkActivityFileLimit(params.id, 1);
+  if (!limit.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Batas file per kegiatan adalah ${limit.max}. Saat ini sudah ada ${limit.used} file. Sisa slot: ${limit.remaining}.`,
+      },
+      { status: 400 }
+    );
+  }
 
   const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
   if (!allowed.includes(file.type)) return NextResponse.json({ error: "Tipe file harus jpg/png/webp/pdf" }, { status: 400 });

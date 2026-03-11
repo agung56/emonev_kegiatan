@@ -3,10 +3,15 @@ import { prisma } from "@/lib/prisma";
 import SasaranClient from "./SasaranClient";
 import { getSession } from "@/lib/auth";
 
-export default async function SasaranPage({ searchParams }: { searchParams: { tahun?: string; kepemilikan?: string } }) {
+export default async function SasaranPage({
+  searchParams,
+}: {
+  searchParams: { tahun?: string; kepemilikan?: string } | Promise<{ tahun?: string; kepemilikan?: string }>;
+}) {
+  const sp = await Promise.resolve(searchParams);
   const sess = await getSession();
-  const tahun = Number(searchParams.tahun || new Date().getFullYear());
-  const kepemilikan = (searchParams.kepemilikan || "LEMBAGA") as "LEMBAGA" | "SEKRETARIAT";
+  const tahun = Number(sp.tahun || new Date().getFullYear());
+  const kepemilikan = (sp.kepemilikan || "LEMBAGA") as "LEMBAGA" | "SEKRETARIAT";
 
   // server-side initial fetch for fast first paint
   const goals = await prisma.strategicGoal.findMany({

@@ -12,15 +12,18 @@ function rupiah(n: number) {
 export default async function KegiatanPage({
   searchParams,
 }: {
-  searchParams: { tahun?: string; subbagId?: string; q?: string; page?: string };
+  searchParams:
+    | { tahun?: string; subbagId?: string; q?: string; page?: string }
+    | Promise<{ tahun?: string; subbagId?: string; q?: string; page?: string }>;
 }) {
+  const sp = await Promise.resolve(searchParams);
   const sess = await getSession();
-  const tahun = Number(searchParams.tahun || new Date().getFullYear());
+  const tahun = Number(sp.tahun || new Date().getFullYear());
   const isAdmin = sess?.role === "SUPER_ADMIN";
-  const subbagId = isAdmin ? searchParams.subbagId || "" : sess?.subbagId || "";
-  const searchQuery = searchParams.q || "";
+  const subbagId = isAdmin ? sp.subbagId || "" : sess?.subbagId || "";
+  const searchQuery = sp.q || "";
   const take = 20;
-  const page = Math.max(1, Number(searchParams.page || 1) || 1);
+  const page = Math.max(1, Number(sp.page || 1) || 1);
   const skip = (page - 1) * take;
 
   const subbags = isAdmin
@@ -60,6 +63,38 @@ export default async function KegiatanPage({
     take,
     orderBy: { createdAt: "desc" },
   });
+
+  // Derive realisasi for rows on this page to keep list consistent with detail page:
+  // if BudgetPlan usages exist -> use sum(amountUsed) from ActivityBudgetPlanUsage
+  // else if legacy usages exist -> use sum(amountUsed) from ActivityBudgetUsage
+  // else -> use Activity.realisasiAnggaran (manual/legacy)
+  const realisasiByActivityId = new Map<string, number>();
+  if (rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const [planAgg, legacyAgg] = await prisma.$transaction([
+      prisma.activityBudgetPlanUsage.groupBy({
+        by: ["activityId"],
+        where: { activityId: { in: ids } },
+        orderBy: { activityId: "asc" },
+        _sum: { amountUsed: true },
+      }),
+      prisma.activityBudgetUsage.groupBy({
+        by: ["activityId"],
+        where: { activityId: { in: ids } },
+        orderBy: { activityId: "asc" },
+        _sum: { amountUsed: true },
+      }),
+    ]);
+
+    const planMap = new Map(planAgg.map((x) => [x.activityId, Number(x._sum?.amountUsed || 0)]));
+    const legacyMap = new Map(legacyAgg.map((x) => [x.activityId, Number(x._sum?.amountUsed || 0)]));
+
+    for (const r of rows) {
+      if (planMap.has(r.id)) realisasiByActivityId.set(r.id, planMap.get(r.id) || 0);
+      else if (legacyMap.has(r.id)) realisasiByActivityId.set(r.id, legacyMap.get(r.id) || 0);
+      else realisasiByActivityId.set(r.id, Number((r as any).realisasiAnggaran || 0));
+    }
+  }
 
   return (
     <PageShell>
@@ -158,8 +193,8 @@ export default async function KegiatanPage({
             <tbody className="divide-y divide-border">
               {rows.map((r) => {
                 const docCount = (r as any)._count?.documentations ?? 0;
-
-                const realisasi = Number((r as any).realisasiAnggaran || 0);
+ 
+                const realisasi = Number(realisasiByActivityId.get(r.id) ?? (r as any).realisasiAnggaran ?? 0);
                 const totalPagu = Number((r as any).budgetPlan?.totalPagu || 0);
                 const totalRealisasi = realisasi;
 
@@ -269,7 +304,7 @@ export default async function KegiatanPage({
               href={{
                 pathname: "/kegiatan",
                 query: Object.fromEntries(
-                  Object.entries({ ...searchParams, page: String(Math.max(1, safePage - 1)) }).filter(
+                  Object.entries({ ...sp, page: String(Math.max(1, safePage - 1)) }).filter(
                     ([, v]) => v !== undefined && v !== ""
                   )
                 ),
@@ -293,7 +328,7 @@ export default async function KegiatanPage({
               href={{
                 pathname: "/kegiatan",
                 query: Object.fromEntries(
-                  Object.entries({ ...searchParams, page: String(Math.min(totalPages, safePage + 1)) }).filter(
+                  Object.entries({ ...sp, page: String(Math.min(totalPages, safePage + 1)) }).filter(
                     ([, v]) => v !== undefined && v !== ""
                   )
                 ),

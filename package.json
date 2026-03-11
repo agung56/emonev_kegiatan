@@ -17,7 +17,8 @@
     "prisma": "prisma",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "recalc:realisasi": "node tools/recalc-activity-realisasi.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

@@ -13,6 +13,36 @@ function looksLikeUnencodedDatabaseUrl(dbUrl: string) {
   return false;
 }
 
+function inspectDatabaseUrl(dbUrlRaw: string) {
+  const raw = String(dbUrlRaw || "").trim();
+  if (!raw) return { ok: false, reason: "DATABASE_URL empty" };
+
+  const noScheme = raw.replace(/^[a-z]+:\/\//i, "");
+  const authPlusHost = (noScheme.split("/")[0] ?? noScheme).trim();
+  const atCount = (authPlusHost.match(/@/g) || []).length;
+
+  try {
+    const u = new URL(raw);
+    return {
+      ok: true,
+      protocol: u.protocol,
+      host: u.hostname,
+      port: u.port ? Number(u.port) : null,
+      db: u.pathname?.startsWith("/") ? u.pathname.slice(1) : u.pathname,
+      hasUser: Boolean(u.username),
+      atCount,
+      hasHash: raw.includes("#"),
+    };
+  } catch (e: any) {
+    return {
+      ok: false,
+      reason: String(e?.message || e || "parse error"),
+      atCount,
+      hasHash: raw.includes("#"),
+    };
+  }
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const checkDb = url.searchParams.get("db") === "1";
@@ -20,6 +50,7 @@ export async function GET(req: Request) {
   const dbUrl = process.env.DATABASE_URL || "";
   const hasDbUrl = Boolean(dbUrl);
   const hasJwt = Boolean(process.env.JWT_SECRET);
+  const dbUrlInfo = hasDbUrl ? inspectDatabaseUrl(dbUrl) : null;
 
   const base = {
     ok: true,
@@ -30,6 +61,7 @@ export async function GET(req: Request) {
       hasDbUrl,
       hasJwt,
       dbUrlLooksUnencoded: hasDbUrl ? looksLikeUnencodedDatabaseUrl(dbUrl) : false,
+      dbUrlInfo,
     },
   };
 

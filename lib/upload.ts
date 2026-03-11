@@ -1,6 +1,5 @@
 import fs from "fs/promises";
 import path from "path";
-import crypto from "crypto";
 
 function sanitizeFileBaseName(input: string) {
   const base = path.basename(String(input || ""));
@@ -52,4 +51,18 @@ export async function saveToPublicUploads(file: File, folder: string) {
 
   const storageKey = `/uploads/${folder}/${name}`; // simpan path; akses langsung /uploads diblok via proxy (gunakan route ber-auth)
   return { storageKey };
+}
+
+export async function deletePublicUpload(storageKey: string) {
+  if (!storageKey) return;
+
+  const normalized = String(storageKey).replace(/\\/g, "/");
+  const relativePath = normalized.startsWith("/") ? normalized.slice(1) : normalized;
+  const absolutePath = path.join(process.cwd(), "public", relativePath);
+
+  try {
+    await fs.unlink(absolutePath);
+  } catch (error: any) {
+    if (error?.code !== "ENOENT") throw error;
+  }
 }

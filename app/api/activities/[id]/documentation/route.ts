@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow, requireRole } from "@/lib/auth";
 import { saveToPublicUploads } from "@/lib/upload";
+import { checkActivityFileLimit } from "@/lib/uploadLimits";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
@@ -67,6 +68,17 @@ export async function POST(
 
   if (!uploadFiles.length) {
     return NextResponse.json({ ok: false, message: "File wajib diunggah" }, { status: 400 });
+  }
+
+  const limit = await checkActivityFileLimit(activityId, uploadFiles.length);
+  if (!limit.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Batas file per kegiatan adalah ${limit.max}. Saat ini sudah ada ${limit.used} file. Sisa slot: ${limit.remaining}.`,
+      },
+      { status: 400 }
+    );
   }
 
   for (const file of uploadFiles) {

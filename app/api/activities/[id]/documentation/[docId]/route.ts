@@ -1,30 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow, requireRole } from "@/lib/auth";
-import fs from "fs/promises";
-import path from "path";
-
-async function deletePhysicalFile(storageKey: string) {
-  if (!storageKey) return;
-
-  const normalized = storageKey.replace(/\\/g, "/");
-
-  // contoh storageKey: /uploads/activities/xxx/docs/file.pdf
-  const relativePath = normalized.startsWith("/")
-    ? normalized.slice(1)
-    : normalized;
-
-  const absolutePath = path.join(process.cwd(), "public", relativePath);
-
-  try {
-    await fs.unlink(absolutePath);
-  } catch (error: any) {
-    // abaikan kalau file memang sudah tidak ada
-    if (error?.code !== "ENOENT") {
-      throw error;
-    }
-  }
-}
+import { deletePublicUpload } from "@/lib/upload";
 
 export async function DELETE(
   _req: NextRequest,
@@ -73,7 +50,7 @@ export async function DELETE(
       where: { id: docId },
     });
 
-    await deletePhysicalFile(doc.storageKey);
+    await deletePublicUpload(doc.storageKey);
   });
 
   return NextResponse.json({ ok: true });

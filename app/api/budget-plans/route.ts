@@ -16,12 +16,19 @@ const CreateSchema = z.object({
   ).min(1),
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Accept optional `?tahun=YYYY` (BudgetsClient uses this for filtering).
+  const { searchParams } = new URL(req.url);
+  const tahunParam = searchParams.get("tahun");
+  const tahun = tahunParam ? Number(tahunParam) : NaN;
+
   const items = await prisma.budgetPlan.findMany({
+    where: Number.isFinite(tahun) ? { tahun: Number(tahun) } : undefined,
     include: { details: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
     orderBy: { createdAt: "desc" },
   });
-  return NextResponse.json({ items });
+
+  return NextResponse.json({ ok: true, items });
 }
 
 export async function POST(req: NextRequest) {

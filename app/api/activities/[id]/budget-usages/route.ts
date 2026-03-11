@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
+import { recalcActivityRealisasi } from "@/lib/realisasi";
 
 async function assertCanAccessActivity(activityId: string) {
   const user = await getActiveUserOrThrow();
@@ -26,15 +27,7 @@ async function assertCanAccessActivity(activityId: string) {
 }
 
 async function recalcActivityUsed(activityId: string) {
-  const agg = await prisma.activityBudgetUsage.aggregate({
-    where: { activityId },
-    _sum: { amountUsed: true },
-  });
-
-  await prisma.activity.update({
-    where: { id: activityId },
-    data: { realisasiAnggaran: agg._sum.amountUsed ?? 0 },
-  });
+  await recalcActivityRealisasi(activityId);
 }
 
 export async function GET(

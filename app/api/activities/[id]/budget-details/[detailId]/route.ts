@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
+import { recalcActivityRealisasi } from "@/lib/realisasi";
 
 function toIntCurrency(n: number) {
   return Math.round(n);
@@ -23,10 +24,7 @@ async function recalcActivityBudget(activityId: string) {
     where: { activityId },
     _sum: { jumlah: true },
   });
-  await prisma.activity.update({
-    where: { id: activityId },
-    data: { realisasiAnggaran: agg._sum.jumlah ?? 0 },
-  });
+  return Number(agg._sum.jumlah || 0);
 }
 
 const PatchSchema = z.object({
@@ -63,8 +61,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     },
   });
 
-  await recalcActivityBudget(params.id);
-  return NextResponse.json({ item });
+  const totalJumlah = await recalcActivityBudget(params.id);
+  await recalcActivityRealisasi(params.id);
+  return NextResponse.json({ item, totalJumlah });
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string; detailId: string }> }) {
@@ -74,7 +73,8 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   if (!access.act) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.activityBudgetDetail.deleteMany({ where: { id: params.detailId, activityId: params.id } });
-  await recalcActivityBudget(params.id);
+  const totalJumlah = await recalcActivityBudget(params.id);
+  await recalcActivityRealisasi(params.id);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, totalJumlah });
 }

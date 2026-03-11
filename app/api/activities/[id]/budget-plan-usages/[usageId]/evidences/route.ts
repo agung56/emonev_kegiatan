@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow, requireRole } from "@/lib/auth";
 import { saveToPublicUploads } from "@/lib/upload";
+import { checkActivityFileLimit } from "@/lib/uploadLimits";
 
 const ALLOWED = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
@@ -27,6 +28,17 @@ export async function POST(
     where: { id: usageId, activityId },
   });
   if (!usage) return NextResponse.json({ ok: false, message: "usage tidak ditemukan" }, { status: 404 });
+
+  const limit = await checkActivityFileLimit(activityId, 1);
+  if (!limit.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Batas file per kegiatan adalah ${limit.max}. Saat ini sudah ada ${limit.used} file. Sisa slot: ${limit.remaining}.`,
+      },
+      { status: 400 }
+    );
+  }
 
   const saved = await saveToPublicUploads(file, `activities/${activityId}/evidence`);
   const created = await prisma.activityBudgetEvidence.create({

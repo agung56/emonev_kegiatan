@@ -4,7 +4,12 @@ import { prisma } from "@/lib/prisma";
 import UsersClient from "./UsersClient";
 import Link from "next/link";
 
-export default async function UsersPage({ searchParams }: { searchParams: { page?: string } }) {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: { page?: string } | Promise<{ page?: string }>;
+}) {
+  const sp = await Promise.resolve(searchParams);
   const sess = await getSession();
   if (sess?.role !== "SUPER_ADMIN") {
     return (
@@ -17,7 +22,7 @@ export default async function UsersPage({ searchParams }: { searchParams: { page
   }
 
   const take = 20;
-  const page = Math.max(1, Number(searchParams.page || 1) || 1);
+  const page = Math.max(1, Number(sp.page || 1) || 1);
   const totalRows = await prisma.user.count();
   const totalPages = Math.max(1, Math.ceil(totalRows / take));
   const safePage = Math.min(page, totalPages);

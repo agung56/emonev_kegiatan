@@ -9,6 +9,12 @@ function rupiah(n: number) {
   return new Intl.NumberFormat("id-ID").format(n);
 }
 
+function toNumberSafe(v: unknown) {
+  if (typeof v === "bigint") return Number(v);
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -37,24 +43,153 @@ export default async function DashboardPage({
   // Jalankan query agregasi secara berurutan untuk mengurangi lonjakan koneksi DB bersamaan
   // (shared hosting sering punya limit koneksi yang ketat).
   const totalRows = await prisma.activity.count({ where });
-  const aggRealisasi = await prisma.activity.aggregate({
-    where,
-    _sum: { realisasiAnggaran: true },
-  });
-  const groupedBySubbag = await prisma.activity.groupBy({
-    by: ["subbagId"],
-    where,
-    _sum: { realisasiAnggaran: true },
-  });
 
-  const totalRealisasi = Number(aggRealisasi._sum.realisasiAnggaran || 0);
+  // Realisasi harus konsisten dengan halaman /kegiatan (prioritas):
+  // 1) Jika activity punya BudgetPlan usages -> SUM(ActivityBudgetPlanUsage.amountUsed)
+  // 2) else jika punya legacy BudgetUsages -> SUM(ActivityBudgetUsage.amountUsed)
+  // 3) else fallback ke Activity.realisasiAnggaran (manual/legacy)
+  const derivedTotalRows = subbagId
+    ? await prisma.$queryRaw<{ total: bigint | number | null }[]>`
+        SELECT
+          SUM(
+            CASE
+              WHEN pu.cntPlan > 0 THEN pu.sumPlan
+              WHEN lu.cntLegacy > 0 THEN lu.sumLegacy
+              ELSE a.realisasiAnggaran
+            END
+          ) AS total
+        FROM \`Activity\` a
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumPlan, COUNT(*) AS cntPlan
+          FROM \`ActivityBudgetPlanUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun} AND ax.subbagId = ${subbagId}
+          GROUP BY u.activityId
+        ) pu ON pu.activityId = a.id
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumLegacy, COUNT(*) AS cntLegacy
+          FROM \`ActivityBudgetUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun} AND ax.subbagId = ${subbagId}
+          GROUP BY u.activityId
+        ) lu ON lu.activityId = a.id
+        WHERE a.tahun = ${tahun} AND a.subbagId = ${subbagId}
+      `
+    : await prisma.$queryRaw<{ total: bigint | number | null }[]>`
+        SELECT
+          SUM(
+            CASE
+              WHEN pu.cntPlan > 0 THEN pu.sumPlan
+              WHEN lu.cntLegacy > 0 THEN lu.sumLegacy
+              ELSE a.realisasiAnggaran
+            END
+          ) AS total
+        FROM \`Activity\` a
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumPlan, COUNT(*) AS cntPlan
+          FROM \`ActivityBudgetPlanUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun}
+          GROUP BY u.activityId
+        ) pu ON pu.activityId = a.id
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumLegacy, COUNT(*) AS cntLegacy
+          FROM \`ActivityBudgetUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun}
+          GROUP BY u.activityId
+        ) lu ON lu.activityId = a.id
+        WHERE a.tahun = ${tahun}
+      `;
+
+  const totalRealisasi = toNumberSafe(derivedTotalRows[0]?.total || 0);
+
+  const derivedBySubbag = subbagId
+    ? await prisma.$queryRaw<{ subbagId: string; realisasi: bigint | number | null }[]>`
+        SELECT
+          a.subbagId AS subbagId,
+          SUM(
+            CASE
+              WHEN pu.cntPlan > 0 THEN pu.sumPlan
+              WHEN lu.cntLegacy > 0 THEN lu.sumLegacy
+              ELSE a.realisasiAnggaran
+            END
+          ) AS realisasi
+        FROM \`Activity\` a
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumPlan, COUNT(*) AS cntPlan
+          FROM \`ActivityBudgetPlanUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun} AND ax.subbagId = ${subbagId}
+          GROUP BY u.activityId
+        ) pu ON pu.activityId = a.id
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumLegacy, COUNT(*) AS cntLegacy
+          FROM \`ActivityBudgetUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun} AND ax.subbagId = ${subbagId}
+          GROUP BY u.activityId
+        ) lu ON lu.activityId = a.id
+        WHERE a.tahun = ${tahun} AND a.subbagId = ${subbagId}
+        GROUP BY a.subbagId
+      `
+    : await prisma.$queryRaw<{ subbagId: string; realisasi: bigint | number | null }[]>`
+        SELECT
+          a.subbagId AS subbagId,
+          SUM(
+            CASE
+              WHEN pu.cntPlan > 0 THEN pu.sumPlan
+              WHEN lu.cntLegacy > 0 THEN lu.sumLegacy
+              ELSE a.realisasiAnggaran
+            END
+          ) AS realisasi
+        FROM \`Activity\` a
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumPlan, COUNT(*) AS cntPlan
+          FROM \`ActivityBudgetPlanUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun}
+          GROUP BY u.activityId
+        ) pu ON pu.activityId = a.id
+        LEFT JOIN (
+          SELECT u.activityId AS activityId, SUM(u.amountUsed) AS sumLegacy, COUNT(*) AS cntLegacy
+          FROM \`ActivityBudgetUsage\` u
+          INNER JOIN \`Activity\` ax ON ax.id = u.activityId
+          WHERE ax.tahun = ${tahun}
+          GROUP BY u.activityId
+        ) lu ON lu.activityId = a.id
+        WHERE a.tahun = ${tahun}
+        GROUP BY a.subbagId
+      `;
   
-  // Hitung total pagu dari BudgetPlan (Pagu Global) untuk tahun yg dipilih
-  const budgetsAgg = await prisma.budgetPlan.aggregate({
-    where: { tahun },
-    _sum: { totalPagu: true },
+  // TOTAL PAGU harus sama seperti halaman "Pagu Global" (/budgets),
+  // yaitu total dari seluruh detail akun (BudgetPlanDetail.pagu) untuk tahun yang dipilih.
+  let totalPagu = 0;
+  const budgetPlanDetailsAgg = await prisma.budgetPlanDetail.aggregate({
+    where: { budgetPlan: { tahun } },
+    _sum: { pagu: true },
   });
-  const totalPagu = Number(budgetsAgg._sum.totalPagu || 0);
+  totalPagu = Number(budgetPlanDetailsAgg._sum.pagu || 0);
+
+  // Fallback jika belum ada BudgetPlan untuk tahun tsb:
+  // 1) BudgetGlobal (kalau dipakai),
+  // 2) BudgetAllocation (kalau dipakai).
+  if (totalPagu === 0) {
+    const globalAgg = await prisma.budgetGlobal.aggregate({
+      where: { tahun },
+      _sum: { pagu: true },
+    });
+    totalPagu = Number(globalAgg._sum.pagu || 0);
+  }
+
+  if (totalPagu === 0) {
+    const allocAgg = await prisma.budgetAllocation.aggregate({
+      where: { tahun, subbagId: { not: null } },
+      _sum: { pagu: true },
+    });
+    totalPagu = Number(allocAgg._sum.pagu || 0);
+  }
+
   const sisaAnggaran = Math.max(0, totalPagu - totalRealisasi);
   const persenRealisasi = totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
 
@@ -76,15 +211,46 @@ export default async function DashboardPage({
     chartDataMap.set(s.id, { name: formatSubbagName(s.nama), realisasi: 0, pagu: 0 });
   });
 
-  groupedBySubbag.forEach((g) => {
+  derivedBySubbag.forEach((g) => {
     const sbId = g.subbagId;
-    const sum = Number(g._sum?.realisasiAnggaran || 0);
+    const sum = toNumberSafe(g.realisasi || 0);
     const fallbackName =
       formatSubbagName(targetSubbags.find((s) => s.id === sbId)?.nama || "Subbag");
     const entry = chartDataMap.get(sbId) || { name: fallbackName, realisasi: 0, pagu: 0 };
     entry.realisasi += sum;
     chartDataMap.set(sbId, entry);
   });
+
+  // Tambahkan pagu per subbag untuk chart (kalau ada BudgetAllocation).
+  if (isAdmin && !subbagId) {
+    const groupedPagu = await prisma.budgetAllocation.groupBy({
+      by: ["subbagId"],
+      where: { tahun, subbagId: { not: null } },
+      _sum: { pagu: true },
+    });
+
+    groupedPagu.forEach((g) => {
+      const sbId = g.subbagId;
+      if (!sbId) return;
+      const sum = Number(g._sum?.pagu || 0);
+      const fallbackName =
+        formatSubbagName(targetSubbags.find((s) => s.id === sbId)?.nama || "Subbag");
+      const entry = chartDataMap.get(sbId) || { name: fallbackName, realisasi: 0, pagu: 0 };
+      entry.pagu += sum;
+      chartDataMap.set(sbId, entry);
+    });
+  } else if (subbagId) {
+    const sbAgg = await prisma.budgetAllocation.aggregate({
+      where: { tahun, subbagId },
+      _sum: { pagu: true },
+    });
+    const sum = Number(sbAgg._sum.pagu || 0);
+    const fallbackName =
+      formatSubbagName(targetSubbags.find((s) => s.id === subbagId)?.nama || "Subbag");
+    const entry = chartDataMap.get(subbagId) || { name: fallbackName, realisasi: 0, pagu: 0 };
+    entry.pagu = sum;
+    chartDataMap.set(subbagId, entry);
+  }
 
   const chartData = Array.from(chartDataMap.values());
 
@@ -107,6 +273,34 @@ export default async function DashboardPage({
     skip: safeSkip,
     take,
   });
+
+  const realisasiByActivityId = new Map<string, number>();
+  if (activities.length > 0) {
+    const ids = activities.map((a) => a.id);
+    const [planAgg, legacyAgg] = await prisma.$transaction([
+      prisma.activityBudgetPlanUsage.groupBy({
+        by: ["activityId"],
+        where: { activityId: { in: ids } },
+        orderBy: { activityId: "asc" },
+        _sum: { amountUsed: true },
+      }),
+      prisma.activityBudgetUsage.groupBy({
+        by: ["activityId"],
+        where: { activityId: { in: ids } },
+        orderBy: { activityId: "asc" },
+        _sum: { amountUsed: true },
+      }),
+    ]);
+
+    const planMap = new Map(planAgg.map((x) => [x.activityId, toNumberSafe(x._sum?.amountUsed || 0)]));
+    const legacyMap = new Map(legacyAgg.map((x) => [x.activityId, toNumberSafe(x._sum?.amountUsed || 0)]));
+
+    for (const a of activities) {
+      if (planMap.has(a.id)) realisasiByActivityId.set(a.id, planMap.get(a.id) || 0);
+      else if (legacyMap.has(a.id)) realisasiByActivityId.set(a.id, legacyMap.get(a.id) || 0);
+      else realisasiByActivityId.set(a.id, toNumberSafe(a.realisasiAnggaran || 0));
+    }
+  }
  
   return (
     <PageShell>
@@ -217,7 +411,7 @@ export default async function DashboardPage({
                   <td className="p-4 font-medium text-foreground min-w-[200px]">{a.namaKegiatan}</td>
                   <td className="p-4 text-muted-foreground">{formatSubbagName(a.subbag.nama)}</td>
                   <td className="p-4 text-muted-foreground">{a.lokus}</td>
-                  <td className="p-4 text-right font-medium text-foreground whitespace-nowrap">Rp {rupiah(a.realisasiAnggaran)}</td>
+                  <td className="p-4 text-right font-medium text-foreground whitespace-nowrap">Rp {rupiah(realisasiByActivityId.get(a.id) ?? toNumberSafe(a.realisasiAnggaran))}</td>
                   <td className="p-4 max-w-xs truncate text-muted-foreground" title={a.outputKegiatan}>{a.outputKegiatan}</td>
                   <td className="p-4 max-w-xs truncate text-muted-foreground italic" title={a.kendala}>{a.kendala || "-"}</td>
                 </tr>

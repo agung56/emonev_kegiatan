@@ -1,8 +1,5 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-
-const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "e-Monev Kegiatan",
@@ -37,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${inter.className} antialiased`}>
+      <body className="antialiased">
         <ThemeProvider>
           <ToastProvider>
             <ConfirmProvider>{children}</ConfirmProvider>
