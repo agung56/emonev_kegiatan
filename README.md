@@ -112,7 +112,7 @@ Di shared hosting, proses install dependency kadang gagal karena limit thread/pr
    ```bash
    npm ci
    npx prisma generate
-   # opsional: kalau DATABASE_URL mengarah ke DB server dan bisa diakses dari lokal
+   # opsional: kalau DATABASE_URL bisa akses database server (mis. via SSH tunnel)
    npm run migrate:deploy
    npm run seed
    npm run build:standalone
@@ -125,6 +125,8 @@ Di shared hosting, proses install dependency kadang gagal karena limit thread/pr
 
 Catatan:
 - Paket `dist/` **tidak** menyertakan `.env` (biar tidak ikut keupload), jadi pastikan env di-set via cPanel.
-- Anda masih bisa menjalankan seed di server tanpa install Prisma CLI: `node prisma/seed.js` (file ini ikut dipaketkan ke `dist/`).
+- Jika database **hanya bisa diakses dari server**, Anda bisa:
+  - Jalankan migrasi manual via phpMyAdmin/MySQL client dengan file `prisma/migrations/*/migration.sql` (folder `prisma/migrations` ikut dipaketkan ke `dist/`), lalu
+  - Seed di server tanpa install Prisma CLI: `node prisma/seed.js` (file ini ikut dipaketkan ke `dist/`).
 
 Selamat mencoba.

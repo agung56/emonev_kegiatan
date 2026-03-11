@@ -36,11 +36,28 @@ async function main() {
   }
 
   // Include seed script (optional convenience on server)
+  const prismaOutDir = path.join(distDir, "prisma");
   const seedSrc = path.join(projectRoot, "prisma", "seed.js");
-  if (await pathExists(seedSrc)) {
-    const prismaOutDir = path.join(distDir, "prisma");
+  const schemaSrc = path.join(projectRoot, "prisma", "schema.prisma");
+  const migrationsSrc = path.join(projectRoot, "prisma", "migrations");
+  if (
+    (await pathExists(seedSrc)) ||
+    (await pathExists(schemaSrc)) ||
+    (await pathExists(migrationsSrc))
+  ) {
     await fs.mkdir(prismaOutDir, { recursive: true });
+  }
+  if (await pathExists(seedSrc)) {
     await fs.copyFile(seedSrc, path.join(prismaOutDir, "seed.js"));
+  }
+  if (await pathExists(schemaSrc)) {
+    await fs.copyFile(schemaSrc, path.join(prismaOutDir, "schema.prisma"));
+  }
+  if (await pathExists(migrationsSrc)) {
+    await fs.cp(migrationsSrc, path.join(prismaOutDir, "migrations"), {
+      recursive: true,
+      dereference: true,
+    });
   }
 
   // Avoid accidentally uploading local secrets
