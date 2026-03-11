@@ -1,12 +1,3 @@
--- Seed minimal data tanpa Node/Prisma (untuk shared hosting yang ketat).
--- Jalankan via phpMyAdmin (tab SQL) atau mysql client.
---
--- 1) Generate bcrypt hash di lokal (Windows/Mac/Linux):
---    node -e "console.log(require('bcryptjs').hashSync('admin123',10))"
---    node -e "console.log(require('bcryptjs').hashSync('user123',10))"
---
--- 2) Tempel hasilnya ke variabel di bawah, lalu jalankan SQL ini.
-
 SET @ADMIN_EMAIL = 'admin@local';
 SET @ADMIN_NAME = 'Super Admin';
 SET @ADMIN_PASS_HASH = '$2a$10$tGRReCEdfvUHg6OiVrk0fu4YawoM/9U0MBdLdlIxrvwLfe0NG64BO';

@@ -5,8 +5,9 @@ function looksLikeUnencodedDatabaseUrl(dbUrl: string) {
   // Jika tidak di-encode, URL bisa ter-parse salah (host jadi aneh) dan koneksi DB timeout.
   if (dbUrl.includes("#")) return true;
 
-  const beforeFirstSlash = dbUrl.split("/")[0] ?? dbUrl;
-  const atCount = (beforeFirstSlash.match(/@/g) || []).length;
+  const noScheme = dbUrl.replace(/^[a-z]+:\/\//i, "");
+  const authPlusHost = (noScheme.split("/")[0] ?? noScheme).trim();
+  const atCount = (authPlusHost.match(/@/g) || []).length;
   if (atCount > 1) return true;
 
   return false;
@@ -61,4 +62,3 @@ export async function GET(req: Request) {
     );
   }
 }
-

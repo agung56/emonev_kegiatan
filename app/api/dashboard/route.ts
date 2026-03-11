@@ -15,7 +15,18 @@ export async function GET(req: Request) {
 
   const activities = await prisma.activity.findMany({
     where,
-    include: { subbag: true, budgetAccount: true, evidences: true },
+    select: {
+      id: true,
+      subbagId: true,
+      namaKegiatan: true,
+      lokus: true,
+      realisasiAnggaran: true,
+      outputKegiatan: true,
+      kendala: true,
+      budgetAccountId: true,
+      subbag: { select: { nama: true } },
+      _count: { select: { evidences: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -53,7 +64,7 @@ export async function GET(req: Request) {
       sisaPaguAnggaran: sisa,
       outputKegiatan: a.outputKegiatan,
       kendala: a.kendala,
-      evidenceCount: a.evidences.length,
+      evidenceCount: a._count.evidences,
     };
   });
 

@@ -29,6 +29,9 @@ const nextConfig = {
   output: "standalone",
   images: { unoptimized: true },
   poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ["recharts", "date-fns"],
+  },
   async headers() {
     return [
       {

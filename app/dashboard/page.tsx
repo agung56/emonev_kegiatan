@@ -34,58 +34,27 @@ export default async function DashboardPage({
   const where: any = { tahun };
   if (subbagId) where.subbagId = subbagId;
 
-  // Realisasi yang ditampilkan harus mengikuti data usage terbaru.
-  // (Ada kasus activity.realisasiAnggaran belum sinkron dengan usage.)
-  const baseActivities = await prisma.activity.findMany({
+  // Jalankan query agregasi secara berurutan untuk mengurangi lonjakan koneksi DB bersamaan
+  // (shared hosting sering punya limit koneksi yang ketat).
+  const totalRows = await prisma.activity.count({ where });
+  const aggRealisasi = await prisma.activity.aggregate({
     where,
-    select: { id: true, subbagId: true, realisasiAnggaran: true },
+    _sum: { realisasiAnggaran: true },
   });
-  const totalRows = baseActivities.length;
+  const groupedBySubbag = await prisma.activity.groupBy({
+    by: ["subbagId"],
+    where,
+    _sum: { realisasiAnggaran: true },
+  });
 
-  const activityIds = baseActivities.map((a) => a.id);
-  const [planSums, legacySums] =
-    activityIds.length > 0
-      ? await Promise.all([
-          prisma.activityBudgetPlanUsage.groupBy({
-            by: ["activityId"],
-            where: { activityId: { in: activityIds } },
-            _sum: { amountUsed: true },
-          }),
-          prisma.activityBudgetUsage.groupBy({
-            by: ["activityId"],
-            where: { activityId: { in: activityIds } },
-            _sum: { amountUsed: true },
-          }),
-        ])
-      : [[], []];
-
-  const planMap = new Map<string, number>(
-    (planSums as any[]).map((s) => [s.activityId, Number(s._sum?.amountUsed || 0)])
-  );
-  const legacyMap = new Map<string, number>(
-    (legacySums as any[]).map((s) => [s.activityId, Number(s._sum?.amountUsed || 0)])
-  );
-
-  const realisasiByActivityId = new Map<string, number>();
-  const groupedBySubbagMap = new Map<string, number>();
-  let totalRealisasi = 0;
-
-  for (const a of baseActivities) {
-    const hasUsage = planMap.has(a.id) || legacyMap.has(a.id);
-    const usageTotal = (planMap.get(a.id) || 0) + (legacyMap.get(a.id) || 0);
-    const realisasi = hasUsage ? usageTotal : Number(a.realisasiAnggaran || 0);
-
-    realisasiByActivityId.set(a.id, realisasi);
-    totalRealisasi += realisasi;
-    groupedBySubbagMap.set(a.subbagId, (groupedBySubbagMap.get(a.subbagId) || 0) + realisasi);
-  }
+  const totalRealisasi = Number(aggRealisasi._sum.realisasiAnggaran || 0);
   
   // Hitung total pagu dari BudgetPlan (Pagu Global) untuk tahun yg dipilih
-  const budgets = await prisma.budgetPlan.findMany({
+  const budgetsAgg = await prisma.budgetPlan.aggregate({
     where: { tahun },
-    select: { totalPagu: true },
+    _sum: { totalPagu: true },
   });
-  const totalPagu = budgets.reduce((s, b) => s + (b.totalPagu || 0), 0);
+  const totalPagu = Number(budgetsAgg._sum.totalPagu || 0);
   const sisaAnggaran = Math.max(0, totalPagu - totalRealisasi);
   const persenRealisasi = totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
 
@@ -107,11 +76,13 @@ export default async function DashboardPage({
     chartDataMap.set(s.id, { name: formatSubbagName(s.nama), realisasi: 0, pagu: 0 });
   });
 
-  groupedBySubbagMap.forEach((sum, sbId) => {
+  groupedBySubbag.forEach((g) => {
+    const sbId = g.subbagId;
+    const sum = Number(g._sum?.realisasiAnggaran || 0);
     const fallbackName =
       formatSubbagName(targetSubbags.find((s) => s.id === sbId)?.nama || "Subbag");
     const entry = chartDataMap.get(sbId) || { name: fallbackName, realisasi: 0, pagu: 0 };
-    entry.realisasi += Number(sum || 0);
+    entry.realisasi += sum;
     chartDataMap.set(sbId, entry);
   });
 
@@ -246,7 +217,7 @@ export default async function DashboardPage({
                   <td className="p-4 font-medium text-foreground min-w-[200px]">{a.namaKegiatan}</td>
                   <td className="p-4 text-muted-foreground">{formatSubbagName(a.subbag.nama)}</td>
                   <td className="p-4 text-muted-foreground">{a.lokus}</td>
-                  <td className="p-4 text-right font-medium text-foreground whitespace-nowrap">Rp {rupiah(realisasiByActivityId.get(a.id) ?? a.realisasiAnggaran)}</td>
+                  <td className="p-4 text-right font-medium text-foreground whitespace-nowrap">Rp {rupiah(a.realisasiAnggaran)}</td>
                   <td className="p-4 max-w-xs truncate text-muted-foreground" title={a.outputKegiatan}>{a.outputKegiatan}</td>
                   <td className="p-4 max-w-xs truncate text-muted-foreground italic" title={a.kendala}>{a.kendala || "-"}</td>
                 </tr>

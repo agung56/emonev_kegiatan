@@ -30,6 +30,13 @@ async function readBody(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.JWT_SECRET) {
+      return NextResponse.json(
+        { ok: false, message: "Konfigurasi server belum lengkap: JWT_SECRET belum di-set." },
+        { status: 500 }
+      );
+    }
+
     // Import prisma/logging secara dinamis supaya kalau Prisma engine/env bermasalah,
     // kita tetap bisa balas JSON (bukan HTML 500 bawaan Next).
     const [{ prisma }, { logActivity }] = await Promise.all([
@@ -100,6 +107,7 @@ export async function POST(req: Request) {
     return res;
   } catch (err: any) {
     const message = String(err?.message || "Internal error");
+    console.error("Login error:", err);
 
     let friendly = "Server error saat login.";
     if (message.toLowerCase().includes("timeout")) {

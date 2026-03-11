@@ -128,6 +128,7 @@ Catatan penting (shared hosting ketat):
 - Jangan jalankan `npm install` / `npm ci` di server. Paket `dist/` sudah membawa `node_modules` yang dibutuhkan Next.js runtime.
 - `dist/package.json` dibuat minimal supaya kalau cPanel menawarkan `npm install`, tidak mengunduh dependency besar yang bisa memicu limit proses.
 - (Opsional) Kalau Anda sudah tahu target Prisma engine di server, Anda bisa kecilkan `dist/` saat packaging dengan env `DIST_PRISMA_TARGET` (lihat `dist/DEPLOY_CPANEL.md`).
+- (Opsional) Untuk mengurangi beban DB, Anda bisa mematikan activity logging dengan env `ENABLE_ACTIVITY_LOGS` (default mati). Set `ENABLE_ACTIVITY_LOGS=1` kalau ingin aktif lagi.
 
 #### Versi command (cPanel Terminal)
 Misal Application root Anda ada di `~/public_html/emonev_kegiatan/dist`:

@@ -53,26 +53,7 @@ export default async function KegiatanPage({
       realisasiAnggaran: true,
       subbag: { select: { nama: true } },
       budgetAccount: { select: { kodeAkun: true } },
-      budgetUsages: {
-        select: {
-          id: true,
-          amountUsed: true,
-          budgetAllocation: { select: { budgetAccount: { select: { kodeAkun: true } } } },
-        },
-      },
-      budgetPlan: {
-        select: {
-          nama: true,
-          details: { select: { pagu: true } },
-        },
-      },
-      budgetPlanUsages: {
-        select: {
-          id: true,
-          amountUsed: true,
-          budgetPlanDetail: { select: { akun: true } },
-        },
-      },
+      budgetPlan: { select: { nama: true, totalPagu: true } },
       _count: { select: { documentations: true } },
     },
     skip: safeSkip,
@@ -176,31 +157,11 @@ export default async function KegiatanPage({
 
             <tbody className="divide-y divide-border">
               {rows.map((r) => {
-                const hasPlanUsages = (r as any).budgetPlanUsages?.length > 0;
-                const planUsages = (r as any).budgetPlanUsages || [];
-                const legacyUsages = (r as any).budgetUsages || [];
                 const docCount = (r as any)._count?.documentations ?? 0;
 
-                const realisasi = hasPlanUsages
-                  ? planUsages.reduce(
-                      (sum: number, u: any) => sum + Number(u.amountUsed || 0),
-                      0
-                    )
-                  : legacyUsages.length > 0
-                  ? legacyUsages.reduce(
-                      (sum: number, u: any) => sum + Number(u.amountUsed || 0),
-                      0
-                    )
-                  : Number((r as any).realisasiAnggaran || 0);
-                
-                const totalPagu =
-                  r.budgetPlan?.details?.reduce((s: number, d: any) => s + Number(d.pagu || 0), 0) || 0;
-
-                const totalRealisasi =
-                  (r as any).budgetPlanUsages?.reduce(
-                    (s: number, u: any) => s + Number(u.amountUsed || 0),
-                    0
-                  ) || (r as any).realisasiAnggaran || 0;
+                const realisasi = Number((r as any).realisasiAnggaran || 0);
+                const totalPagu = Number((r as any).budgetPlan?.totalPagu || 0);
+                const totalRealisasi = realisasi;
 
                 const persenValue =
                   totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
@@ -222,8 +183,10 @@ export default async function KegiatanPage({
                     <td className="p-4 min-w-[150px]">
                       {r.budgetPlan ? (
                         <div className="text-sm leading-snug">
-                          <div className="font-semibold text-foreground">{(r.budgetPlan as any).nama}</div>
-                          <div className="text-muted-foreground mt-0.5">Tahun {tahun}</div>
+                          <div className="font-semibold text-foreground whitespace-nowrap">Rp {rupiah(totalPagu)}</div>
+                          <div className="text-muted-foreground mt-0.5 truncate" title={(r.budgetPlan as any).nama}>
+                            {(r.budgetPlan as any).nama}
+                          </div>
                         </div>
                       ) : (
                         <span className="text-muted-foreground italic">Belum diatur</span>
@@ -239,29 +202,11 @@ export default async function KegiatanPage({
                     </td>
 
                     <td className="p-4 min-w-[150px]">
-                      {hasPlanUsages ? (
-                        <div className="space-y-1.5">
-                          {planUsages.map((u: any) => (
-                            <div key={u.id} className="text-sm leading-snug">
-                              <span className="text-muted-foreground block mb-0.5">{u.budgetPlanDetail?.akun || "-"}</span>
-                              <span className="font-medium text-foreground">Rp {rupiah(u.amountUsed)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : legacyUsages.length ? (
-                        <div className="space-y-1.5">
-                          {legacyUsages.map((u: any) => (
-                            <div key={u.id} className="text-sm leading-snug">
-                              <span className="text-muted-foreground block mb-0.5">{u.budgetAllocation?.budgetAccount?.kodeAkun || "-"}</span>
-                              <span className="font-medium text-foreground">Rp {rupiah(u.amountUsed)}</span>
-                            </div>
-                          ))}
-                        </div>
+                      {r.budgetPlan ? (
+                        <span className="text-muted-foreground">Multi akun</span>
                       ) : (
                         <span className="text-muted-foreground">
-                          {(r as any).budgetAccount
-                            ? (r as any).budgetAccount.kodeAkun
-                            : "-"}
+                          {(r as any).budgetAccount ? (r as any).budgetAccount.kodeAkun : "-"}
                         </span>
                       )}
                     </td>
