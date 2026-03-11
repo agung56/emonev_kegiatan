@@ -3,15 +3,20 @@ import type { NextRequest } from "next/server";
 
 const COOKIE_NAME = "ohgitu_session";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Biarkan semua API route berjalan tanpa redirect
   if (pathname.startsWith("/api")) return NextResponse.next();
 
   // Skip Next internals + route publik
-  const publicPaths = ["/login", "/_next", "/favicon.ico", "/uploads"];
+  const publicPaths = ["/login", "/_next", "/favicon.ico"];
   if (publicPaths.some((p) => pathname.startsWith(p))) return NextResponse.next();
+
+  // Jangan expose /public/uploads langsung. Akses file harus lewat route ber-auth (contoh: /files/docs/...).
+  if (pathname.startsWith("/uploads/")) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
 
   // Skip semua file statis (dari /public), contoh: /logo-kpu.png, /test.txt
   // Ini akan mencegah redirect ke /login untuk asset statis

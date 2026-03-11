@@ -1,15 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow, requireRole } from "@/lib/auth";
 import { saveToPublicUploads } from "@/lib/upload";
 
 const ALLOWED = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
-export async function POST(req: Request, ctx: { params: { id: string; usageId: string } }) {
+export async function POST(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string; usageId: string }> }
+) {
   const user = await getActiveUserOrThrow();
   requireRole(user, ["SUPER_ADMIN", "USER"]);
 
-  const { id: activityId, usageId } = ctx.params;
+  const { id: activityId, usageId } = await ctx.params;
   const form = await req.formData();
   const file = form.get("file");
 

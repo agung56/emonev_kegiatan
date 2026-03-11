@@ -2,37 +2,69 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import type { Role, User } from "@prisma/client";
+import type { NextResponse } from "next/server";
 
-export type SessionUser = Pick<User, "id" | "email" | "name" | "role" | "subbagId">;
+export type SessionUser = Pick<User, "id" | "email" | "name" | "role" | "subbagId"> & {
+  subbagName?: string | null;
+};
 
 const COOKIE_NAME = "ohgitu_session";
 
 function secret() {
-  // fallback untuk dev agar tidak 500 kalau .env belum lengkap
-  return process.env.JWT_SECRET || "iniakunrahasia";
+  const s = process.env.JWT_SECRET;
+  if (!s) {
+    throw new Error("JWT_SECRET wajib di-set (lihat .env.example).");
+  }
+  if (process.env.NODE_ENV === "production" && s.length < 32) {
+    throw new Error("JWT_SECRET terlalu pendek untuk production (min 32 karakter).");
+  }
+  return s;
 }
 
-export function setSession(user: SessionUser) {
-  const token = jwt.sign({ user }, secret(), { expiresIn: "7d" });
-  cookies().set(COOKIE_NAME, token, {
+export function signSessionToken(user: SessionUser) {
+  const token = jwt.sign({ user }, secret(), { expiresIn: "30m" });
+  return token;
+}
+
+export function applySessionCookie(res: NextResponse, user: SessionUser) {
+  const token = signSessionToken(user);
+  res.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    // Tanpa maxAge = session cookie, hilang saat browser ditutup
   });
 }
 
-export function clearSession() {
-  cookies().set(COOKIE_NAME, "", { httpOnly: true, path: "/", maxAge: 0 });
+export function clearSessionCookie(res: NextResponse) {
+  res.cookies.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
 }
 
 export async function getSession(): Promise<SessionUser | null> {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const store = await cookies();
+  const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
     const payload = jwt.verify(token, secret()) as any;
-    return payload?.user ?? null;
+    const user = payload?.user ?? null;
+    if (!user) return null;
+
+    // Backward-compat: older session tokens may contain role as "SUPER ADMIN"
+    if (typeof user.role === "string") {
+      const normalizedRole = user.role.trim().toUpperCase().replace(/\s+/g, "_");
+      if (normalizedRole === "SUPER_ADMIN" || normalizedRole === "USER") {
+        return { ...user, role: normalizedRole } as SessionUser;
+      }
+    }
+
+    return user as SessionUser;
   } catch {
     return null;
   }

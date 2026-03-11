@@ -1,16 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
+import { logActivity } from "@/lib/logger";
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const user = await getActiveUserOrThrow();
+  const { id } = await ctx.params;
 
   const row = await prisma.activity.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       subbag: true,
       budgetAccount: true,
@@ -94,13 +96,14 @@ const Schema = z.object({
 });
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const user = await getActiveUserOrThrow();
+  const { id } = await ctx.params;
 
   const existing = await prisma.activity.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       subbagId: true,
@@ -211,7 +214,7 @@ export async function PUT(
   }
 
   const updated = await prisma.activity.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       namaKegiatan: parsed.data.namaKegiatan,
       lokus: parsed.data.lokus,
@@ -266,17 +269,29 @@ export async function PUT(
     },
   });
 
+
+  // Log Activity
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  await logActivity({
+    userId: user.id,
+    action: "UPDATE_ACTIVITY",
+    description: `User ${user.name} mengubah kegiatan: ${updated.namaKegiatan}`,
+    metadata: { activityId: updated.id },
+    ipAddress: ip,
+  });
+
   return NextResponse.json(updated);
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const user = await getActiveUserOrThrow();
+  const { id } = await ctx.params;
 
   const existing = await prisma.activity.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!existing) {
@@ -287,6 +302,17 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.activity.delete({ where: { id: params.id } });
+  await prisma.activity.delete({ where: { id } });
+
+  // Log Activity
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  await logActivity({
+    userId: user.id,
+    action: "DELETE_ACTIVITY",
+    description: `User ${user.name} menghapus kegiatan: ${existing.namaKegiatan}`,
+    metadata: { activityId: id },
+    ipAddress: ip,
+  });
+
   return NextResponse.json({ ok: true });
 }

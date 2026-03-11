@@ -1,6 +1,7 @@
 import PageShell from "@/app/components/PageShell";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatSubbagName } from "@/lib/formatSubbag";
 import Link from "next/link";
 import DeleteActivityButton from "./[id]/DeleteActivity";
 
@@ -11,12 +12,16 @@ function rupiah(n: number) {
 export default async function KegiatanPage({
   searchParams,
 }: {
-  searchParams: { tahun?: string; subbagId?: string };
+  searchParams: { tahun?: string; subbagId?: string; q?: string; page?: string };
 }) {
   const sess = await getSession();
   const tahun = Number(searchParams.tahun || new Date().getFullYear());
   const isAdmin = sess?.role === "SUPER_ADMIN";
   const subbagId = isAdmin ? searchParams.subbagId || "" : sess?.subbagId || "";
+  const searchQuery = searchParams.q || "";
+  const take = 20;
+  const page = Math.max(1, Number(searchParams.page || 1) || 1);
+  const skip = (page - 1) * take;
 
   const subbags = isAdmin
     ? await prisma.subbag.findMany({ orderBy: { nama: "asc" } })
@@ -26,30 +31,52 @@ export default async function KegiatanPage({
   if (subbagId) where.subbagId = subbagId;
   if (!isAdmin) where.subbagId = sess?.subbagId;
 
+  // Fitur Pencarian
+  if (searchQuery) {
+    where.OR = [
+      { namaKegiatan: { contains: searchQuery } },
+      { lokus: { contains: searchQuery } },
+    ];
+  }
+
+  const totalRows = await prisma.activity.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalRows / take));
+  const safePage = Math.min(page, totalPages);
+  const safeSkip = (safePage - 1) * take;
+
   const rows = await prisma.activity.findMany({
     where,
-    include: {
-      subbag: true,
-
-      budgetAccount: true,
-
+    select: {
+      id: true,
+      namaKegiatan: true,
+      lokus: true,
+      realisasiAnggaran: true,
+      subbag: { select: { nama: true } },
+      budgetAccount: { select: { kodeAkun: true } },
       budgetUsages: {
-        include: { budgetAllocation: { include: { budgetAccount: true } } },
-      },
-
-      evidences: true,
-
-      budgetPlan: true,
-
-      budgetPlanUsages: {
-        include: {
-          budgetPlanDetail: true,
-          evidences: true,
+        select: {
+          id: true,
+          amountUsed: true,
+          budgetAllocation: { select: { budgetAccount: { select: { kodeAkun: true } } } },
         },
       },
-
-      documentations: true,
+      budgetPlan: {
+        select: {
+          nama: true,
+          details: { select: { pagu: true } },
+        },
+      },
+      budgetPlanUsages: {
+        select: {
+          id: true,
+          amountUsed: true,
+          budgetPlanDetail: { select: { akun: true } },
+        },
+      },
+      _count: { select: { documentations: true } },
     },
+    skip: safeSkip,
+    take,
     orderBy: { createdAt: "desc" },
   });
 
@@ -57,191 +84,286 @@ export default async function KegiatanPage({
     <PageShell>
       <div className="flex items-end gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold">Kegiatan</h1>
-          <p className="text-sm text-gray-600">Input & kelola kegiatan.</p>
+          <h1 className="text-2xl font-bold text-foreground">Manajemen Kegiatan</h1>
         </div>
 
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto">
           <Link
-            className="bg-[#FFA500] text-white rounded px-3 py-1.5 hover:bg-[#e69500]"
+            className="inline-flex items-center gap-2 bg-primary text-white font-bold rounded-lg px-5 py-2.5 transition transform hover:scale-105 hover:shadow-lg active:scale-95"
             href="/kegiatan/new"
           >
-            + Tambah
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+            </svg>
+            Tambah Kegiatan
           </Link>
         </div>
       </div>
 
-      <form className="mt-4 flex gap-2 items-end" action="/kegiatan" method="get">
+      <form className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-card p-5 rounded-2xl shadow-sm border border-border" action="/kegiatan" method="get">
+        <input type="hidden" name="page" value="1" />
+        <div className="lg:col-span-1">
+          <label className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-1.5 block ml-1">Cari Kegiatan / Lokus</label>
+          <div className="relative group">
+            <input
+              name="q"
+              defaultValue={searchQuery}
+              placeholder="Kata kunci..."
+              className="block w-full border border-border rounded-xl pl-11 pr-4 py-2.5 text-base bg-muted/30 focus:bg-background focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none text-foreground"
+            />
+            <svg className="w-5 h-5 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
         <div>
-          <label className="text-sm">Tahun</label>
+          <label className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-1.5 block ml-1">Tahun</label>
           <input
             name="tahun"
             defaultValue={tahun}
-            className="block w-28 border rounded px-2 py-1"
+            className="block w-full border border-border rounded-xl px-4 py-2.5 text-base bg-muted/30 focus:bg-background focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all text-foreground"
           />
         </div>
 
         {isAdmin && (
-          <div>
-            <label className="text-sm">Subbag</label>
+          <div className="min-w-0">
+            <label className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-1.5 block ml-1">Subbagian</label>
             <select
               name="subbagId"
               defaultValue={subbagId}
-              className="block w-48 border rounded px-2 py-1"
+              className="block w-full border border-border rounded-xl px-4 py-2.5 text-base bg-muted/30 focus:bg-background focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all appearance-none cursor-pointer text-foreground"
             >
-              <option value="">(Semua)</option>
+              <option value="" className="bg-card text-foreground">Semua Subbag</option>
               {subbags.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nama}
+                <option key={s.id} value={s.id} className="bg-card text-foreground">
+                  {formatSubbagName(s.nama)}
                 </option>
               ))}
             </select>
           </div>
         )}
 
-        <button
-          className="bg-[#FFA500] text-white rounded px-3 py-1.5 hover:bg-[#e69500]"
-          type="submit"
-        >
-          Filter
-        </button>
+        <div className="flex items-end">
+          <button
+            className="w-full bg-primary text-white rounded-xl px-6 py-2.5 text-base font-bold hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95 min-h-[46px]"
+            type="submit"
+          >
+            Filter
+          </button>
+        </div>
       </form>
 
-      <div className="mt-5 overflow-x-auto bg-white rounded-xl shadow">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left p-3">Nama Kegiatan</th>
-              <th className="text-left p-3">Subbag</th>
-              <th className="text-left p-3">Lokus</th>
-              <th className="text-left p-3">Pagu Kegiatan</th>
-              <th className="text-right p-3">Realisasi</th>
-              <th className="text-left p-3">Akun</th>
-              <th className="text-center p-3">Dokumentasi</th>
-            </tr>
-          </thead>
+      <div className="mt-8 relative group">
+        <div className="absolute -top-6 right-0 text-xs font-medium text-muted-foreground md:hidden animate-pulse">
+          &larr; Geser tabel ke kanan untuk detail &rarr;
+        </div>
+        <div className="overflow-x-auto bg-card rounded-2xl shadow-sm border border-border">
+          <table className="min-w-full text-sm md:text-base">
+            <thead className="bg-muted/50 border-b border-border">
+              <tr>
+                <th className="text-left p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Nama Kegiatan</th>
+                <th className="text-left p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Subbag</th>
+                <th className="text-left p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Lokus</th>
+                <th className="text-left p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Pagu Kegiatan</th>
+                <th className="text-right p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Realisasi</th>
+                <th className="text-right p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">%</th>
+                <th className="text-left p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Akun</th>
+                <th className="text-center p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Dokumentasi</th>
+                <th className="text-center p-4 font-bold text-muted-foreground uppercase tracking-wide text-xs md:text-sm">Aksi</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {rows.map((r) => {
-              const hasPlanUsages = (r as any).budgetPlanUsages?.length > 0;
-              const planUsages = (r as any).budgetPlanUsages || [];
-              const legacyUsages = (r as any).budgetUsages || [];
-              const legacyEvidenceCount = ((r as any).evidences || []).length;
-              const docCount = ((r as any).documentations || []).length;
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => {
+                const hasPlanUsages = (r as any).budgetPlanUsages?.length > 0;
+                const planUsages = (r as any).budgetPlanUsages || [];
+                const legacyUsages = (r as any).budgetUsages || [];
+                const docCount = (r as any)._count?.documentations ?? 0;
 
-              // const evidenceCount = hasPlanUsages
-              //   ? planUsages.reduce(
-              //       (s: number, u: any) => s + (u.evidences?.length || 0),
-              //       0
-              //     )
-              //   : legacyEvidenceCount;
+                const realisasi = hasPlanUsages
+                  ? planUsages.reduce(
+                      (sum: number, u: any) => sum + Number(u.amountUsed || 0),
+                      0
+                    )
+                  : legacyUsages.length > 0
+                  ? legacyUsages.reduce(
+                      (sum: number, u: any) => sum + Number(u.amountUsed || 0),
+                      0
+                    )
+                  : Number((r as any).realisasiAnggaran || 0);
+                
+                const totalPagu =
+                  r.budgetPlan?.details?.reduce((s: number, d: any) => s + Number(d.pagu || 0), 0) || 0;
 
-              const realisasi = hasPlanUsages
-                ? planUsages.reduce(
-                    (sum: number, u: any) => sum + Number(u.amountUsed || 0),
+                const totalRealisasi =
+                  (r as any).budgetPlanUsages?.reduce(
+                    (s: number, u: any) => s + Number(u.amountUsed || 0),
                     0
-                  )
-                : legacyUsages.length > 0
-                ? legacyUsages.reduce(
-                    (sum: number, u: any) => sum + Number(u.amountUsed || 0),
-                    0
-                  )
-                : Number((r as any).realisasiAnggaran || 0);
+                  ) || (r as any).realisasiAnggaran || 0;
 
-              return (
-                <tr key={r.id} className="border-t align-top">
-                  <td className="p-3 font-medium">{r.namaKegiatan}</td>
-                  <td className="p-3">{r.subbag?.nama || "-"}</td>
-                  <td className="p-3">{r.lokus}</td>
+                const persenValue =
+                  totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
+                const persen = persenValue.toFixed(2);
 
-                  <td className="p-3">
-                    {r.budgetPlan ? (
-                      <div className="text-xs">
-                        <div className="font-medium">{(r.budgetPlan as any).nama}</div>
-                        <div className="text-gray-500">Tahun {tahun}</div>
+                const persenClass =
+                  persenValue < 50
+                    ? "bg-destructive/10 text-destructive border-destructive/20"
+                    : persenValue <= 60
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+
+                return (
+                  <tr key={r.id} className="hover:bg-muted/30 transition-colors align-top">
+                    <td className="p-4 font-medium text-foreground min-w-[200px]">{r.namaKegiatan}</td>
+                    <td className="p-4 text-muted-foreground">{formatSubbagName(r.subbag?.nama)}</td>
+                    <td className="p-4 text-muted-foreground">{r.lokus}</td>
+
+                    <td className="p-4 min-w-[150px]">
+                      {r.budgetPlan ? (
+                        <div className="text-sm leading-snug">
+                          <div className="font-semibold text-foreground">{(r.budgetPlan as any).nama}</div>
+                          <div className="text-muted-foreground mt-0.5">Tahun {tahun}</div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground italic">Belum diatur</span>
+                      )}
+                    </td>
+
+                    <td className="p-4 text-right font-medium text-foreground whitespace-nowrap">Rp {rupiah(realisasi)}</td>
+
+                    <td className="p-4 text-right">
+                      <div className={`inline-flex items-center px-2 py-1 rounded-lg text-sm font-bold border ${persenClass}`}>
+                        {persen}%
                       </div>
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
-                  </td>
+                    </td>
 
-                  <td className="p-3 text-right">Rp {rupiah(realisasi)}</td>
+                    <td className="p-4 min-w-[150px]">
+                      {hasPlanUsages ? (
+                        <div className="space-y-1.5">
+                          {planUsages.map((u: any) => (
+                            <div key={u.id} className="text-sm leading-snug">
+                              <span className="text-muted-foreground block mb-0.5">{u.budgetPlanDetail?.akun || "-"}</span>
+                              <span className="font-medium text-foreground">Rp {rupiah(u.amountUsed)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : legacyUsages.length ? (
+                        <div className="space-y-1.5">
+                          {legacyUsages.map((u: any) => (
+                            <div key={u.id} className="text-sm leading-snug">
+                              <span className="text-muted-foreground block mb-0.5">{u.budgetAllocation?.budgetAccount?.kodeAkun || "-"}</span>
+                              <span className="font-medium text-foreground">Rp {rupiah(u.amountUsed)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {(r as any).budgetAccount
+                            ? (r as any).budgetAccount.kodeAkun
+                            : "-"}
+                        </span>
+                      )}
+                    </td>
 
-                  <td className="p-3">
-                    {hasPlanUsages ? (
-                      <div className="space-y-1">
-                        {planUsages.map((u: any) => (
-                          <div key={u.id} className="text-xs">
-                            {u.budgetPlanDetail?.akun || "-"}{" "}
-                            <span className="text-gray-500">
-                              Rp {rupiah(u.amountUsed)}
-                            </span>
-                          </div>
-                        ))}
+                    <td className="p-4 text-center">
+                      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 text-primary text-sm font-bold border border-primary/20">
+                         {docCount} File
                       </div>
-                    ) : legacyUsages.length ? (
-                      <div className="space-y-1">
-                        {legacyUsages.map((u: any) => (
-                          <div key={u.id} className="text-xs">
-                            {u.budgetAllocation?.budgetAccount?.kodeAkun || "-"}{" "}
-                            <span className="text-gray-500">
-                              Rp {rupiah(u.amountUsed)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span>
-                        {(r as any).budgetAccount
-                          ? (r as any).budgetAccount.kodeAkun
-                          : "-"}
-                      </span>
-                    )}
-                  </td>
+                    </td>
 
-                  <td className="p-3">
-                    <span className="text-sm">{docCount} file</span>
-                  </td>
-
-                  <td className="p-3 text-center">
-                    <div className="flex items-center justify-center gap-3">
-                      <Link
-                        href={`/kegiatan/${r.id}`}
-                        className="border rounded-lg divide-y"
-                        title="Lihat Detail"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <Link
+                          href={`/kegiatan/${r.id}`}
+                          prefetch={false}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                          title="Lihat Detail"
                         >
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      </Link>
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </Link>
 
-                      <DeleteActivityButton id={r.id} />
-                    </div>
+                        <DeleteActivityButton id={r.id} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="p-12 text-center text-muted-foreground italic">
+                    Data kegiatan tidak ditemukan atau belum ditambahkan.
                   </td>
                 </tr>
-              );
-            })}
+              )}
+            </tbody>
+          </table>
+        </div>
 
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={8} className="p-4 text-gray-600">
-                  Belum ada kegiatan.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <div className="flex items-center justify-between gap-3 mt-4">
+          <div className="text-sm text-muted-foreground">
+            Menampilkan{" "}
+            <span className="font-semibold text-foreground">
+              {totalRows === 0 ? 0 : safeSkip + 1}
+            </span>
+            {" - "}
+            <span className="font-semibold text-foreground">
+              {Math.min(safeSkip + rows.length, totalRows)}
+            </span>
+            {" "}dari{" "}
+            <span className="font-semibold text-foreground">{totalRows}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              prefetch={false}
+              href={{
+                pathname: "/kegiatan",
+                query: Object.fromEntries(
+                  Object.entries({ ...searchParams, page: String(Math.max(1, safePage - 1)) }).filter(
+                    ([, v]) => v !== undefined && v !== ""
+                  )
+                ),
+              }}
+              aria-disabled={safePage <= 1}
+              className={`px-3 py-2 rounded-xl border border-border font-bold transition-all text-sm ${
+                safePage <= 1
+                  ? "opacity-50 pointer-events-none text-muted-foreground"
+                  : "hover:bg-muted/30 text-foreground"
+              }`}
+            >
+              Sebelumnya
+            </Link>
+
+            <div className="px-3 py-2 rounded-xl bg-muted/50 border border-border text-sm font-bold text-foreground">
+              {safePage} / {totalPages}
+            </div>
+
+            <Link
+              prefetch={false}
+              href={{
+                pathname: "/kegiatan",
+                query: Object.fromEntries(
+                  Object.entries({ ...searchParams, page: String(Math.min(totalPages, safePage + 1)) }).filter(
+                    ([, v]) => v !== undefined && v !== ""
+                  )
+                ),
+              }}
+              aria-disabled={safePage >= totalPages}
+              className={`px-3 py-2 rounded-xl border border-border font-bold transition-all text-sm ${
+                safePage >= totalPages
+                  ? "opacity-50 pointer-events-none text-muted-foreground"
+                  : "hover:bg-muted/30 text-foreground"
+              }`}
+            >
+              Berikutnya
+            </Link>
+          </div>
+        </div>
       </div>
     </PageShell>
   );

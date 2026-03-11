@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useConfirm } from "@/app/components/ConfirmContext";
+import { useToast } from "@/app/components/ToastContext";
 
 type Props = {
   activityId: string;
@@ -15,10 +17,18 @@ export default function DeleteDocumentationButton({
   fileName,
 }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   async function handleDelete() {
-    const ok = confirm(`Yakin ingin menghapus file "${fileName}"?`);
+    const ok = await confirm({
+      title: "Hapus File",
+      message: `Yakin ingin menghapus file "${fileName}"?`,
+      confirmText: "Hapus",
+      cancelText: "Batal",
+      tone: "danger",
+    });
     if (!ok) return;
 
     try {
@@ -35,10 +45,11 @@ export default function DeleteDocumentationButton({
       const out = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(out?.message || "Gagal menghapus file");
+        toast(out?.message || out?.error || "Gagal menghapus file.", "error");
         return;
       }
 
+      toast("File berhasil dihapus.", "success");
       router.refresh();
     } finally {
       setLoading(false);
@@ -50,30 +61,17 @@ export default function DeleteDocumentationButton({
       type="button"
       onClick={handleDelete}
       disabled={loading}
-      className="text-red-600 hover:underline disabled:opacity-50"
+      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all disabled:opacity-50"
       title="Hapus file"
+      aria-label="Hapus file"
     >
       {loading ? (
-    "..."
-  ) : (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M9 6V4h6v2" />
-    </svg>
-  )}
+        "..."
+      ) : (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+      )}
     </button>
   );
 }

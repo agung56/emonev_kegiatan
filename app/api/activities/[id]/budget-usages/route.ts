@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
@@ -38,9 +38,10 @@ async function recalcActivityUsed(activityId: string) {
 }
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
 ) {
+  const params = await ctx.params;
   const access = await assertCanAccessActivity(params.id);
   if (access instanceof NextResponse) return access;
   if (!access.act) {
@@ -69,9 +70,10 @@ const CreateSchema = z.object({
 });
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
 ) {
+  const params = await ctx.params;
   const access = await assertCanAccessActivity(params.id);
   if (access instanceof NextResponse) return access;
   if (!access.act) {

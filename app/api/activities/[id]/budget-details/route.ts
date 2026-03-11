@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
@@ -29,7 +29,8 @@ async function recalcActivityBudget(activityId: string) {
   });
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const params = await ctx.params;
   const access = await assertCanAccessActivity(params.id);
   if (access instanceof NextResponse) return access;
   if (!access.act) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -49,7 +50,8 @@ const CreateSchema = z.object({
   sortOrder: z.coerce.number().int().optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const params = await ctx.params;
   const access = await assertCanAccessActivity(params.id);
   if (access instanceof NextResponse) return access;
   if (!access.act) return NextResponse.json({ error: "Not found" }, { status: 404 });

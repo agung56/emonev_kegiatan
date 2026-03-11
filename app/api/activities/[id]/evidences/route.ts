@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import path from "path";
 import fs from "fs/promises";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const params = await ctx.params;
   const user = await getActiveUserOrThrow();
 
   const act = await prisma.activity.findUnique({ where: { id: params.id } });
@@ -45,7 +46,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   return NextResponse.redirect(new URL(`/kegiatan/${params.id}/edit`, req.url));
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const params = await ctx.params;
   const user = await getActiveUserOrThrow();
   const act = await prisma.activity.findUnique({ where: { id: params.id } });
   if (!act) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -19,10 +19,10 @@ const PatchSchema = z.object({
     .optional(),
 });
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   await getActiveUserOrThrow();
 
-  const { id } = ctx.params;
+  const { id } = await ctx.params;
 
   const item = await prisma.budgetPlan.findUnique({
     where: { id },
@@ -41,12 +41,12 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   return NextResponse.json({ ok: true, item });
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const user = await getActiveUserOrThrow();
     requireRole(user, ["SUPER_ADMIN"]);
 
-    const { id } = ctx.params;
+    const { id } = await ctx.params;
     const patch = PatchSchema.parse(await req.json());
 
     const existing = await prisma.budgetPlan.findUnique({
@@ -193,12 +193,12 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const user = await getActiveUserOrThrow();
     requireRole(user, ["SUPER_ADMIN"]);
 
-    const { id } = ctx.params;
+    const { id } = await ctx.params;
 
     const details = await prisma.budgetPlanDetail.findMany({
       where: { budgetPlanId: id },

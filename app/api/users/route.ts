@@ -4,11 +4,31 @@ import { getActiveUserOrThrow, requireRole } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(req: Request) {
   const user = await getActiveUserOrThrow();
   requireRole(user, ["SUPER_ADMIN"]);
-  const rows = await prisma.user.findMany({ include: { subbag: true }, orderBy: { createdAt: "desc" } });
-  return NextResponse.json(rows.map(u => ({ ...u, passwordHash: undefined })));
+
+  const url = new URL(req.url);
+  const page = Math.max(1, Number(url.searchParams.get("page") || 1) || 1);
+  const takeRaw = Number(url.searchParams.get("take") || 0) || 0;
+  const take = takeRaw > 0 ? Math.min(100, takeRaw) : 0;
+  const skip = take > 0 ? (page - 1) * take : 0;
+
+  const rows = await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      subbagId: true,
+      isActive: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    ...(take > 0 ? { skip, take } : {}),
+  });
+
+  return NextResponse.json(rows);
 }
 
 const CreateSchema = z.object({

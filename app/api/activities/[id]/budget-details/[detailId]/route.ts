@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
@@ -37,7 +37,8 @@ const PatchSchema = z.object({
   sortOrder: z.coerce.number().int().optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string; detailId: string } }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string; detailId: string }> }) {
+  const params = await ctx.params;
   const access = await assertCanAccessActivity(params.id);
   if (access instanceof NextResponse) return access;
   if (!access.act) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -66,7 +67,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string; de
   return NextResponse.json({ item });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string; detailId: string } }) {
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string; detailId: string }> }) {
+  const params = await ctx.params;
   const access = await assertCanAccessActivity(params.id);
   if (access instanceof NextResponse) return access;
   if (!access.act) return NextResponse.json({ error: "Not found" }, { status: 404 });

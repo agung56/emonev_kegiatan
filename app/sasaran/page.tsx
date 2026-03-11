@@ -26,7 +26,7 @@ export default async function SasaranPage({ searchParams }: { searchParams: { ta
 
   return (
     <PageShell>
-      <div className="flex items-end gap-3 flex-wrap">
+      <div className="flex items-end gap-3 flex-wrap mb-6">
         <div>
           <h1 className="text-xl font-semibold">Sasaran Kegiatan/program & Indikator Kinerja</h1>
         </div>

@@ -19,7 +19,7 @@ Project ini sudah *langsung jalan* (frontend & backend dalam 1 project Next.js) 
 3. Edit `.env` dan sesuaikan koneksi MySQL:
    ```env
    DATABASE_URL="mysql://root:password@localhost:3306/rekap_kegiatan"
-   JWT_SECRET="ganti_dengan_string_panjang_acak"
+   JWT_SECRET="ganti_dengan_string_panjang_acak_min_32_karakter"
    ```
 
 ## 3) Cara menjalankan (lokal)
@@ -60,35 +60,30 @@ Project ini sudah *langsung jalan* (frontend & backend dalam 1 project Next.js) 
   - `d@local` / `user123`
 
 ## 5) Fitur yang sudah ada
-- Login + proteksi halaman (middleware)
+- Login + proteksi halaman (proxy)
+- Dark mode / light mode (toggle tema)
 - Role:
   - SUPER_ADMIN: bisa lihat semua subbag
   - USER: hanya data subbag miliknya
 - Dashboard rekap kegiatan per tahun (+ filter subbag untuk admin)
 - Tombol **Rekap Capaian Kinerja** (per bulan / per 6 bulan / tahunan) + detail kegiatan & anggaran
 - CRUD Kegiatan (Create, Update, Delete) via UI
-- Upload bukti dukung foto (jpg/png/webp) ke `/public/uploads`
-- Halaman **/users**: CRUD user lewat UI (tambah/edit/hapus + reset password)
-- Halaman **/budgets**: Super Admin bisa tambah pagu baru & update pagu lewat UI
+- Upload bukti dukung & dokumentasi (PDF/JPG/PNG/WEBP) ke folder `public/uploads`
+- Preview dokumentasi membuka tab baru (via route `/files/docs/...`) dan tombol download pakai nama file asli
+- Notifikasi error/sukses menggunakan toast (muncul di atas layar) + konfirmasi aksi delete menggunakan modal
+- Halaman **/users**:
+  - CRUD user lewat UI (tambah/edit/hapus)
+  - Ganti password user (kolom password baru per user)
+  - Super Admin bisa mengubah email & password akunnya sendiri (Pengaturan Akun)
+- Halaman **/budgets**: Super Admin bisa tambah/edit pagu kegiatan & detail akun (Pagu Global) lewat UI
 - Halaman **/sasaran**: Super Admin bisa CRUD Sasaran Strategis & Indikator lewat UI
+- Halaman **/logs**: Super Admin bisa hapus log per hari / per bulan
 
-## 6) Import Master Indikator dari Excel
-
-Sesuai pedoman excel:
-- Sheet: **Master**
-- Kolom C: Sasaran Program
-- Kolom D: Indikator Kinerja
-- Kolom AD: Formula Perhitungan
-- Kolom AE: Sumber Data
-
-Jalankan (contoh):
-
-```bash
-npm run import:master -- --file "/path/to/Master Cascading PK 2025-2029_27 Jan 2026_14.44 WIB.xlsx" --tahun 2026 --kepemilikan LEMBAGA
-```
-
-## 7) Catatan produksi
-- Ganti `JWT_SECRET` di `.env` dengan string panjang & random
-- Untuk upload bukti dukung, disarankan pakai storage (S3/MinIO) supaya aman & tidak hilang saat deploy.
+## 6) Catatan produksi
+- **Wajib set `JWT_SECRET`**. Di production minimal 32 karakter (random) dan jangan pakai value default.
+- Akses langsung ke `/uploads/*` **diblock** oleh proxy (404). Gunakan route ber-auth seperti `/files/docs/...` untuk preview/download.
+- Security headers (CSP minimal, HSTS di production, dsb) sudah diset di `next.config.js`.
+- Jalankan di belakang HTTPS (reverse proxy Nginx/Caddy/Cloudflare).
+- Untuk upload file, disarankan pakai storage (S3/MinIO) + backup supaya aman & tidak hilang saat deploy.
 
 Selamat mencoba.

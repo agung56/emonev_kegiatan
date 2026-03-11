@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow, requireRole } from "@/lib/auth";
 import { saveToPublicUploads } from "@/lib/upload";
@@ -33,11 +33,14 @@ function isAllowedFile(file: File) {
   );
 }
 
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
   const user = await getActiveUserOrThrow();
   requireRole(user, ["SUPER_ADMIN", "USER"]);
 
-  const { id: activityId } = ctx.params;
+  const { id: activityId } = await ctx.params;
 
   const activity = await prisma.activity.findUnique({
     where: { id: activityId },

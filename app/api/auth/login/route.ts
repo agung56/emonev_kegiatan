@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { setSession } from "@/lib/auth";
+import { applySessionCookie } from "@/lib/auth";
+import { logActivity } from "@/lib/logger";
 
 async function readBody(req: Request) {
   const ct = req.headers.get("content-type") || "";
@@ -28,7 +29,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Email/password wajib" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { subbag: { select: { nama: true } } },
+  });
   if (!user || !user.isActive) {
     return NextResponse.json({ ok: false, message: "User tidak ditemukan/nonaktif" }, { status: 401 });
   }
@@ -38,7 +42,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Password salah" }, { status: 401 });
   }
 
-  setSession({ id: user.id, email: user.email, name: user.name, role: user.role, subbagId: user.subbagId });
+  const res = NextResponse.json({
+    ok: true,
+    role: user.role,
+    subbagId: user.subbagId,
+    subbagName: user.subbag?.nama ?? null,
+  });
 
-  return NextResponse.json({ ok: true, role: user.role, subbagId: user.subbagId });
+  applySessionCookie(res, {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    subbagId: user.subbagId,
+    subbagName: user.subbag?.nama ?? null,
+  });
+
+  // Log Activity
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  await logActivity({
+    userId: user.id,
+    action: "LOGIN",
+    description: `User ${user.name} berhasil login.`,
+    ipAddress: ip,
+  });
+
+  return res;
 }

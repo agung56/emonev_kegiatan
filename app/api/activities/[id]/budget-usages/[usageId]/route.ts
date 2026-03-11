@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow } from "@/lib/auth";
 import { z } from "zod";
@@ -50,9 +50,10 @@ async function recalcActivityUsed(activityId: string) {
 }
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string; usageId: string } }
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string; usageId: string }> }
 ) {
+  const params = await ctx.params;
   const access = await assertCanAccessUsage(params.id, params.usageId);
   if (access instanceof NextResponse) return access;
   if (!access.usage) {
@@ -67,9 +68,10 @@ const PatchSchema = z.object({
 });
 
 export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string; usageId: string } }
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string; usageId: string }> }
 ) {
+  const params = await ctx.params;
   const access = await assertCanAccessUsage(params.id, params.usageId);
   if (access instanceof NextResponse) return access;
   if (!access.usage) {
@@ -117,9 +119,10 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string; usageId: string } }
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string; usageId: string }> }
 ) {
+  const params = await ctx.params;
   const access = await assertCanAccessUsage(params.id, params.usageId);
   if (access instanceof NextResponse) return access;
   if (!access.usage) {

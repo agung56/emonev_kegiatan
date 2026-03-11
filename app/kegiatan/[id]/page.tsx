@@ -1,6 +1,7 @@
 import PageShell from "@/app/components/PageShell";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatSubbagName } from "@/lib/formatSubbag";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteDocumentationButton from "./DeleteActivityButton";
@@ -76,40 +77,55 @@ export default async function KegiatanDetailPage({
   }
 
   return (
-    <PageShell>
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/kegiatan" className="underline text-sm">
-            ← Kembali
+    <PageShell showNav={false}>
+      <div className="sticky top-16 z-40 -mx-4 md:-mx-8 px-4 md:px-8 py-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-2">
+          <Link
+            prefetch={false}
+            href="/kegiatan"
+            className="inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm font-extrabold text-primary transition-all hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.98]"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M19 12H5" />
+              <path d="M12 19l-7-7 7-7" />
+            </svg>
+            Kembali
           </Link>
-          <h1 className="text-xl font-semibold mt-2">Detail Kegiatan</h1>
+          <div>
+            <h1 className="text-2xl font-extrabold text-foreground tracking-tight">Detail Kegiatan</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Lihat rincian kegiatan, indikator, realisasi anggaran, dan dokumentasi.
+            </p>
+          </div>
         </div>
 
         <Link
           href={`/kegiatan/${row.id}/edit`}
-          className="bg-[#FFA500] text-white rounded px-3 py-2 hover:bg-[#e69500]"
+          className="bg-primary text-primary-foreground font-bold rounded-xl px-4 py-2 hover:shadow-lg hover:shadow-primary/20 active:scale-95 transition-all"
         >
-          Edit
+          Edit Kegiatan
         </Link>
+        </div>
       </div>
 
-      <div className="mt-5 bg-white rounded-xl shadow p-5 space-y-5">
+      <div className="mt-6 bg-card border border-border rounded-xl shadow-sm p-6 space-y-6">
         <div>
-          <h2 className="font-semibold text-lg">{row.namaKegiatan}</h2>
-          <div className="text-sm text-gray-600 mt-1">
-            Tahun {row.tahun} • {row.subbag?.nama}
+          <h2 className="font-bold text-lg text-foreground">{row.namaKegiatan}</h2>
+          <div className="text-sm text-muted-foreground mt-1 font-medium">
+            Tahun {row.tahun} {" • "} {formatSubbagName(row.subbag?.nama)}
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 text-sm">
+        <div className="grid md:grid-cols-3 gap-4 text-sm bg-muted/30 p-4 rounded-xl border border-border">
           <div>
-            <div className="text-gray-500">Lokus</div>
-            <div>{row.lokus}</div>
+            <div className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] mb-1">Lokus</div>
+            <div className="font-semibold text-foreground">{row.lokus}</div>
           </div>
 
           <div>
-            <div className="text-gray-500">Realisasi Total</div>
-            <div className="font-medium">
+            <div className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] mb-1">Realisasi Total</div>
+            <div className="font-bold text-foreground">
               {rupiah(
                 row.budgetPlanUsages?.length > 0
                   ? row.budgetPlanUsages.reduce(
@@ -122,8 +138,8 @@ export default async function KegiatanDetailPage({
           </div>
 
           <div>
-            <div className="text-gray-500">Tanggal Kegiatan</div>
-            <div>
+            <div className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] mb-1">Tanggal Kegiatan</div>
+            <div className="font-semibold text-foreground">
               {row.tanggalMulai
                 ? new Date(row.tanggalMulai).toLocaleDateString("id-ID")
                 : "-"}
@@ -137,21 +153,21 @@ export default async function KegiatanDetailPage({
 
         {hasPlan && (
           <div>
-            <h3 className="font-semibold mb-2">Pagu Anggaran Kegiatan</h3>
-            <div className="text-sm text-gray-600 mb-2">{row.budgetPlan?.nama}</div>
+            <h3 className="font-bold text-foreground mb-1">Pagu Anggaran Kegiatan</h3>
+            <div className="text-sm font-semibold text-primary mb-3 bg-primary/10 inline-flex px-3 py-1 rounded-lg border border-primary/20">{row.budgetPlan?.nama}</div>
 
-            <div className="overflow-x-auto border rounded">
+            <div className="overflow-x-auto border border-border rounded-xl">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="p-3 text-left">Akun</th>
-                    <th className="p-3 text-right">Pagu</th>
-                    <th className="p-3 text-right">Dipakai Kegiatan Ini</th>
-                    <th className="p-3 text-right">Dipakai Semua Kegiatan</th>
-                    <th className="p-3 text-right">Sisa Global</th>
+                <thead className="bg-muted/50 border-b border-border">
+                  <tr className="text-muted-foreground uppercase tracking-wider text-[10px] font-bold">
+                    <th className="p-4 text-left">Akun</th>
+                    <th className="p-4 text-right">Total Anggaran</th>
+                    <th className="p-4 text-right">Dipakai Kegiatan Ini</th>
+                    <th className="p-4 text-right">Total Pengeluaran</th>
+                    <th className="p-4 text-right">Sisa Anggaran</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border">
                   {hasPlanDetails ? (
                     row.budgetPlan!.details.map((detail) => {
                       const usageThisActivity = row.budgetPlanUsages.find(
@@ -166,16 +182,16 @@ export default async function KegiatanDetailPage({
                       const sisaGlobal = pagu - usedGlobal;
 
                       return (
-                        <tr key={detail.id} className="border-t">
-                          <td className="p-3">{detail.akun}</td>
-                          <td className="p-3 text-right">{rupiah(pagu)}</td>
-                          <td className="p-3 text-right">
+                        <tr key={detail.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="p-4 font-semibold text-foreground">{detail.akun}</td>
+                          <td className="p-4 text-right text-muted-foreground">{rupiah(pagu)}</td>
+                          <td className="p-4 text-right text-foreground font-bold">
                             {rupiah(usedThisActivity)}
                           </td>
-                          <td className="p-3 text-right">
+                          <td className="p-4 text-right text-muted-foreground">
                             {rupiah(usedGlobal)}
                           </td>
-                          <td className="p-3 text-right">
+                          <td className="p-4 text-right text-primary font-bold">
                             {rupiah(sisaGlobal)}
                           </td>
                         </tr>
@@ -183,7 +199,7 @@ export default async function KegiatanDetailPage({
                     })
                   ) : (
                     <tr>
-                      <td colSpan={5} className="p-3 text-gray-500">
+                      <td colSpan={5} className="p-8 text-center text-muted-foreground italic font-medium">
                         Detail akun belum tersedia.
                       </td>
                     </tr>
@@ -195,12 +211,15 @@ export default async function KegiatanDetailPage({
         )}
 
         <div>
-          <h3 className="font-semibold mb-2">Dokumentasi Kegiatan</h3>
+          <h3 className="font-bold text-foreground mb-3">Dokumentasi Kegiatan</h3>
 
-          <div className="border rounded-lg divide-y">
+          <div className="border border-border rounded-xl divide-y divide-border overflow-hidden">
             {(row.documentations || []).map((doc: any) => {
               const path = String(doc.filePath || doc.storageKey || "");
               const name = doc.fileName || path.split("/").pop() || "file";
+              const safeUrlName = encodeURIComponent(String(name).replace(/\s+/g, "-"));
+              const previewHref = `/files/docs/${doc.id}/${safeUrlName}`;
+              const downloadHref = `${previewHref}?download=1`;
 
               const lower = path.toLowerCase();
               const isPdf = lower.endsWith(".pdf");
@@ -225,21 +244,21 @@ export default async function KegiatanDetailPage({
               return (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="text-xs font-semibold bg-gray-100 px-2 py-1 rounded shrink-0">
+                    <div className="text-[10px] font-black uppercase tracking-widest bg-muted px-2 py-1 rounded text-foreground border border-border shrink-0">
                       {type}
                     </div>
-                    <div className="truncate">{name}</div>
+                    <div className="truncate font-medium text-foreground">{name}</div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <a
-                      href={path}
+                      href={previewHref}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                      className="p-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
                       title="Preview file"
                     >
                       <svg
@@ -249,7 +268,7 @@ export default async function KegiatanDetailPage({
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="2"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
@@ -259,9 +278,9 @@ export default async function KegiatanDetailPage({
                     </a>
 
                     <a
-                      href={path}
-                      download
-                      className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                      href={downloadHref}
+                      download={name}
+                      className="p-2 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
                       title="Download file"
                     >
                       <svg
@@ -271,7 +290,7 @@ export default async function KegiatanDetailPage({
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="2"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
@@ -292,23 +311,23 @@ export default async function KegiatanDetailPage({
             })}
 
             {(row.documentations || []).length === 0 && (
-              <div className="p-3 text-sm text-gray-600">
+              <div className="p-6 text-center text-sm text-muted-foreground italic font-medium">
                 Belum ada dokumentasi.
               </div>
             )}
           </div>
         </div>
 
-        <div>
-          <div className="text-gray-500 text-sm">Output Kegiatan</div>
-          <div className="text-sm whitespace-pre-line">
+        <div className="pt-6 border-t border-border">
+          <div className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] mb-2">Output Kegiatan</div>
+          <div className="text-sm whitespace-pre-line text-foreground p-4 bg-muted/30 rounded-xl border border-border">
             {row.outputKegiatan || "-"}
           </div>
         </div>
 
         <div>
-          <div className="text-gray-500 text-sm">Kendala</div>
-          <div className="text-sm whitespace-pre-line">
+          <div className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] mb-2">Kendala</div>
+          <div className="text-sm whitespace-pre-line text-foreground p-4 bg-muted/30 rounded-xl border border-border">
             {row.kendala || "-"}
           </div>
         </div>

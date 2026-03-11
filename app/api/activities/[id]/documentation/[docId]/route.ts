@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActiveUserOrThrow, requireRole } from "@/lib/auth";
 import fs from "fs/promises";
@@ -27,13 +27,13 @@ async function deletePhysicalFile(storageKey: string) {
 }
 
 export async function DELETE(
-  req: Request,
-  ctx: { params: { id: string; docId: string } }
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string; docId: string }> }
 ) {
   const user = await getActiveUserOrThrow();
   requireRole(user, ["SUPER_ADMIN", "USER"]);
 
-  const { id: activityId, docId } = ctx.params;
+  const { id: activityId, docId } = await ctx.params;
 
   const activity = await prisma.activity.findUnique({
     where: { id: activityId },
