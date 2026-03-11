@@ -239,10 +239,10 @@ export default function KinerjaRecapClient({
                 <details key={ind.id} className="border-b border-border last:border-b-0 group">
                   <summary className="cursor-pointer px-4 py-3 hover:bg-muted/30 transition-colors flex flex-wrap items-center gap-3 list-none">
                     <div className="font-medium flex-1 min-w-[280px] text-foreground flex items-center gap-2">
-                       <svg className="w-4 h-4 text-primary group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                       </svg>
-                       {ind.nama}
+                      <svg className="w-4 h-4 text-primary group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      {ind.nama}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Pagu: <b className="text-foreground">{rupiah(ind.totalPagu || 0)}</b>
