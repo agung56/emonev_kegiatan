@@ -3,7 +3,7 @@
 Project ini sudah *langsung jalan* (frontend & backend dalam 1 project Next.js) dan **database menggunakan MySQL**.
 
 ## 1) Prasyarat
-- Node.js >= 18
+- Node.js >= 20.9 (disarankan 20.x, sesuai `package.json`)
 - MySQL Server >= 8 (atau MariaDB yang kompatibel)
 - NPM (atau pnpm/yarn)
 
@@ -104,5 +104,27 @@ Jika cPanel Anda support Node.js:
    npm run build
    ```
 5. Restart aplikasi dari cPanel.
+
+### Jika `npm ci` gagal (mis. `SIGABRT` saat `unrs-resolver` / limit thread)
+Di shared hosting, proses install dependency kadang gagal karena limit thread/proses. Solusi paling aman: **build di lokal** lalu upload hasil build **standalone** sehingga server tidak perlu `npm ci` / `npm run build`.
+
+1. Di lokal (PC/laptop):
+   ```bash
+   npm ci
+   npx prisma generate
+   # opsional: kalau DATABASE_URL mengarah ke DB server dan bisa diakses dari lokal
+   npm run migrate:deploy
+   npm run seed
+   npm run build:standalone
+   ```
+   Hasilnya ada di folder `dist/`.
+2. Upload **isi** folder `dist/` ke server (jadikan itu Application root), lalu di cPanel:
+   - **Application root**: folder hasil upload `dist/`
+   - **Application startup file**: `server.js`
+3. Set env di cPanel (minimal `DATABASE_URL`, `JWT_SECRET`) lalu restart.
+
+Catatan:
+- Paket `dist/` **tidak** menyertakan `.env` (biar tidak ikut keupload), jadi pastikan env di-set via cPanel.
+- Anda masih bisa menjalankan seed di server tanpa install Prisma CLI: `node prisma/seed.js` (file ini ikut dipaketkan ke `dist/`).
 
 Selamat mencoba.

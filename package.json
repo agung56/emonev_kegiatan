@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:standalone": "npm run build && npm run package:standalone",
+    "package:standalone": "node tools/package-standalone.mjs",
     "start": "node server.js",
     "lint": "next lint",
     "prisma": "prisma",
