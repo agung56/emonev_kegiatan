@@ -43,13 +43,39 @@ async function main() {
     await fs.cp(bcryptSrc, bcryptOut, { recursive: true, dereference: true });
   }
 
+  // Prisma CLI (prisma generate) membutuhkan generator build dari @prisma/client.
+  // Standalone tracing kadang tidak menyertakannya, sehingga generate di server gagal.
+  const prismaClientGeneratorSrc = path.join(
+    projectRoot,
+    "node_modules",
+    "@prisma",
+    "client",
+    "generator-build"
+  );
+  if (await pathExists(prismaClientGeneratorSrc)) {
+    const prismaClientGeneratorOut = path.join(
+      distDir,
+      "node_modules",
+      "@prisma",
+      "client",
+      "generator-build"
+    );
+    await fs.mkdir(path.dirname(prismaClientGeneratorOut), { recursive: true });
+    await fs.cp(prismaClientGeneratorSrc, prismaClientGeneratorOut, {
+      recursive: true,
+      dereference: true,
+    });
+  }
+
   // Include seed script (optional convenience on server)
   const prismaOutDir = path.join(distDir, "prisma");
   const seedSrc = path.join(projectRoot, "prisma", "seed.js");
+  const seedSqlSrc = path.join(projectRoot, "prisma", "seed.sql");
   const schemaSrc = path.join(projectRoot, "prisma", "schema.prisma");
   const migrationsSrc = path.join(projectRoot, "prisma", "migrations");
   if (
     (await pathExists(seedSrc)) ||
+    (await pathExists(seedSqlSrc)) ||
     (await pathExists(schemaSrc)) ||
     (await pathExists(migrationsSrc))
   ) {
@@ -57,6 +83,9 @@ async function main() {
   }
   if (await pathExists(seedSrc)) {
     await fs.copyFile(seedSrc, path.join(prismaOutDir, "seed.js"));
+  }
+  if (await pathExists(seedSqlSrc)) {
+    await fs.copyFile(seedSqlSrc, path.join(prismaOutDir, "seed.sql"));
   }
   if (await pathExists(schemaSrc)) {
     await fs.copyFile(schemaSrc, path.join(prismaOutDir, "schema.prisma"));

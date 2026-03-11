@@ -149,8 +149,11 @@ Lalu restart aplikasi via tombol **Restart** di `Setup Node.js App`.
 
 Catatan:
 - Paket `dist/` **tidak** menyertakan `.env` (biar tidak ikut keupload), jadi pastikan env di-set via cPanel.
+- Jalankan perintah dari terminal yang sudah memakai environment Node.js App (di cPanel `Setup Node.js App` → **Open Terminal**). Kalau `node -v` menunjukkan versi di luar 20.x, biasanya terminalnya belum masuk environment app.
 - Jika database **hanya bisa diakses dari server**, Anda bisa:
   - Jalankan migrasi manual via phpMyAdmin/MySQL client dengan file `prisma/migrations/*/migration.sql` (folder `prisma/migrations` ikut dipaketkan ke `dist/`), lalu
-  - Seed di server tanpa install Prisma CLI: `node prisma/seed.js` (file ini ikut dipaketkan ke `dist/`).
+  - Seed:
+    - Jika `node prisma/seed.js` berat dan membuat hosting freeze, jalankan seed via SQL (`prisma/seed.sql`) di phpMyAdmin.
+    - Atau jalankan seed via Node: `node prisma/seed.js` (file ini ikut dipaketkan ke `dist/`).
 
 Selamat mencoba.
